@@ -228,6 +228,48 @@ etchlog/
 
 ---
 
+## Building from source
+
+**Prerequisites**
+
+| Tool | Version | Needed for |
+|---|---|---|
+| JDK | **21** (LTS) | Java modules — the build targets `release 21` and will fail on an older JDK |
+| Maven | bundled via `./mvnw` | no system Maven required |
+| Node.js | 20+ (with npm) | the `dashboard/` frontend only |
+
+> ⚠️ The build pins `maven.compiler.release=21`. If your default `java` is older, point `JAVA_HOME` at a JDK 21 install before running the wrapper, e.g. on macOS/Homebrew:
+> ```bash
+> export JAVA_HOME="$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)"
+> ```
+
+**Build the JVM modules**
+
+```bash
+./mvnw clean package -DskipTests   # build all four modules
+./mvnw verify                      # full gate: unit + jqwik property + ArchUnit + Testcontainers
+./mvnw -pl etchlog-core test       # crypto core only (fast)
+```
+
+**Code style** — the build runs [Spotless](https://github.com/diffplug/spotless) (Google Java Format, AOSP 4-space). Check and auto-fix:
+
+```bash
+./mvnw spotless:check   # verify formatting (also runs in verify)
+./mvnw spotless:apply   # auto-format the codebase
+```
+
+**Build the dashboard** (separate Node project, outside the Maven reactor)
+
+```bash
+cd dashboard
+npm install
+npm run build   # production bundle → dist/
+npm test        # in-browser verifier tests
+npm run dev     # Vite dev server on :5173
+```
+
+---
+
 ## Comparison
 
 | | **Etchlog** | Google Trillian | AWS QLDB | Azure SQL Ledger |

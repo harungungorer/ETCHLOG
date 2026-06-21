@@ -1,0 +1,39 @@
+# Etchlog editor configuration — https://editorconfig.org
+# Keeps formatting consistent across editors and matches the Spotless
+# (Google Java Format, AOSP 4-space) config enforced by the Maven build.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# Java sources: AOSP style → 4-space indentation (matches Spotless).
+[*.java]
+indent_size = 4
+
+# Maven / XML.
+[*.{xml,pom}]
+indent_size = 4
+
+# Web / dashboard sources and config.
+[*.{ts,tsx,js,jsx,cjs,mjs,css,scss,json,html}]
+indent_size = 2
+
+# YAML and Markdown.
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown: trailing whitespace can be meaningful (hard line breaks).
+[*.md]
+trim_trailing_whitespace = false
+
+# Shell scripts and the Maven wrapper.
+[*.sh]
+indent_size = 2
+
+# Makefiles require real tabs.
+[Makefile]
+indent_style = tab
