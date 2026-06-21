@@ -16,6 +16,9 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !.mvn/wrapper/maven-wrapper.properties
 dependency-reduced-pom.xml
+# jqwik writes a failure-replay database next to each module; it is a local
+# test artifact, not source.
+.jqwik-database
 release.properties
 pom.xml.tag
 pom.xml.releaseBackup
