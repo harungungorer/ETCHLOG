@@ -35,6 +35,7 @@
         <springdoc.version>2.7.0</springdoc.version>
         <sqlite-jdbc.version>3.47.1.0</sqlite-jdbc.version>
         <bouncycastle.version>1.79</bouncycastle.version>
+        <spotless.version>2.43.0</spotless.version>
     </properties>
 
     <dependencyManagement>
@@ -103,6 +104,36 @@
     </dependencyManagement>
 
     <build>
+        <plugins>
+            <!-- Code style: Google Java Format (AOSP, 4-space) enforced on `verify`.
+                 Run `mvn spotless:apply` to auto-format. Inherited by all modules. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <googleJavaFormat>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <importOrder/>
+                        <removeUnusedImports/>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
         <pluginManagement>
             <plugins>
                 <plugin>
