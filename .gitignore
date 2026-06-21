@@ -11,8 +11,10 @@ docs/
 # Java / Maven
 # ══════════════════════════════════════════════════════
 target/
+# Maven wrapper is distributionType=only-script: the properties file is the only
+# wrapper config and MUST be committed so ./mvnw works on a fresh checkout.
 !.mvn/wrapper/maven-wrapper.jar
-.mvn/wrapper/maven-wrapper.properties
+!.mvn/wrapper/maven-wrapper.properties
 dependency-reduced-pom.xml
 release.properties
 pom.xml.tag
