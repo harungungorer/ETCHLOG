@@ -1,0 +1,174 @@
+# ══════════════════════════════════════════════════════
+# AI / Development Files (do not commit)
+# ══════════════════════════════════════════════════════
+TASKS.md
+CLAUDE.md
+AGENTS.md
+.claude/
+docs/
+
+# ══════════════════════════════════════════════════════
+# Java / Maven
+# ══════════════════════════════════════════════════════
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+dependency-reduced-pom.xml
+release.properties
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+buildNumber.properties
+
+# Compiled class / archive files
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.nar
+
+# JVM crash logs
+hs_err_pid*
+replay_pid*
+
+# ══════════════════════════════════════════════════════
+# GraalVM Native Image
+# ══════════════════════════════════════════════════════
+# Native build artifacts (the compiled single binary + AOT scratch)
+*.build_artifacts.txt
+reports/
+graalvm-reachability-metadata/
+
+# ══════════════════════════════════════════════════════
+# Spring Boot
+# ══════════════════════════════════════════════════════
+# Externalized / local config that may contain secrets
+application-local.properties
+application-local.yml
+application-local.yaml
+application-secret*.properties
+application-secret*.yml
+*.original
+
+# ══════════════════════════════════════════════════════
+# Frontend (React + TypeScript + Vite — dashboard)
+# ══════════════════════════════════════════════════════
+node_modules/
+dashboard/node_modules/
+dist/
+dashboard/dist/
+build/
+dashboard/build/
+
+# Vite cache
+.vite/
+dashboard/.vite/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Lint / format caches
+.eslintcache
+.prettiercache
+
+# Test coverage
+coverage/
+dashboard/coverage/
+.nyc_output/
+
+# ══════════════════════════════════════════════════════
+# Databases (PostgreSQL / SQLite — local & demo)
+# ══════════════════════════════════════════════════════
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+etchlog.db*
+
+# Docker volume data (local development)
+.docker-data/
+postgres-data/
+
+# Docker override (local customizations)
+docker-compose.override.yml
+
+# ══════════════════════════════════════════════════════
+# Secrets — NEVER COMMIT
+# ══════════════════════════════════════════════════════
+# The Ed25519 STH signing key is the single most sensitive secret in a
+# deployment — never let it near version control.
+*.p12
+*.p8
+*.cer
+*.pem
+*.key
+*.pub
+*.jks
+*.keystore
+ed25519*
+sth-signing*
+log-private*
+service-account*.json
+authkey*.json
+credentials.*
+secrets/
+.env
+.env.*
+!.env.example
+
+# ══════════════════════════════════════════════════════
+# IDE / Editor
+# ══════════════════════════════════════════════════════
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+*.swp
+*.swo
+*~
+.mcp.json
+
+# ══════════════════════════════════════════════════════
+# macOS
+# ══════════════════════════════════════════════════════
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ══════════════════════════════════════════════════════
+# Testing / Playwright
+# ══════════════════════════════════════════════════════
+.playwright-mcp/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Test screenshots (generated)
+screenshots/**/*.png
+!screenshots/README.md
+
+# ══════════════════════════════════════════════════════
+# Logs & Temporary Files
+# ══════════════════════════════════════════════════════
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+.cache/
