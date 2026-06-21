@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Documentation
+    url: https://github.com/harungungorer/Etchlog/tree/main/docs
+    about: >
+      Browse the full documentation — architecture, contributing guide,
+      testing strategy, API reference, and the roadmap — before opening an
+      issue.
+  - name: Security vulnerability
+    url: https://github.com/harungungorer/Etchlog/security/advisories/new
+    about: >
+      Do NOT open a public issue for security vulnerabilities. Use GitHub
+      Security Advisories for private disclosure.
