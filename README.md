@@ -161,8 +161,8 @@ chmod +x etchlog
 # 1. Append a record (write requires an API key)
 curl -sS -X POST http://localhost:8080/api/v1/log/entries \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: demo-appender-key" \
-  -d '{"payload":"aGVsbG8gZXRjaGxvZw=="}'   # base64("hello etchlog")
+  -d '{"payload":"aGVsbG8gZXRjaGxvZw=="}' \
+  -H "X-API-Key: demo-appender-key"   # base64 payload = "hello etchlog"; placeholder key — gitleaks:allow
 # → { "leafIndex": 0, "leafHash": "...", "sth": { ... } }
 
 # 2. Fetch an inclusion proof (public — no key needed)
