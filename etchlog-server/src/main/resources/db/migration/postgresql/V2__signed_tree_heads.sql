@@ -5,9 +5,9 @@
 CREATE TABLE signed_tree_heads (
     tree_size          BIGINT       NOT NULL,           -- number of leaves committed
     root_hash          BYTEA        NOT NULL,           -- 32-byte Merkle root over tree_size leaves
-    timestamp          TIMESTAMPTZ  NOT NULL,           -- cryptographic STH timestamp (signed)
+    timestamp          BIGINT       NOT NULL,           -- cryptographic STH timestamp (signed), epoch ms
     ed25519_signature  BYTEA        NOT NULL,           -- 64-byte Ed25519 sig over the serialized STH
-    created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at         BIGINT       NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT, -- epoch ms
 
     CONSTRAINT pk_sth          PRIMARY KEY (tree_size),
     CONSTRAINT ck_sth_size_pos CHECK (tree_size >= 0),

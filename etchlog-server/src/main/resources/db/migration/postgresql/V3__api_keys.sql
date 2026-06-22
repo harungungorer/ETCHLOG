@@ -8,8 +8,8 @@ CREATE TABLE api_keys (
     key_hash    BYTEA        NOT NULL,                  -- SHA-256 hash of the API key (never plaintext)
     label       VARCHAR(128) NOT NULL,
     active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    revoked_at  TIMESTAMPTZ  NULL,
+    created_at  BIGINT       NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT, -- epoch ms
+    revoked_at  BIGINT       NULL,                       -- epoch ms; NULL until revoked
 
     CONSTRAINT pk_api_keys      PRIMARY KEY (id),
     CONSTRAINT uq_api_keys_hash UNIQUE (key_hash)

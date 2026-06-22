@@ -10,7 +10,7 @@ CREATE TABLE leaves (
     leaf_hash    BYTEA        NOT NULL,                 -- RFC 6962: SHA-256(0x00 || payload), 32 bytes
     payload      BYTEA        NULL,                     -- raw record, or NULL if only a hash was submitted
     payload_size INTEGER      NOT NULL DEFAULT 0,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at   BIGINT       NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT, -- epoch ms
 
     CONSTRAINT pk_leaves              PRIMARY KEY (leaf_index),
     CONSTRAINT uq_leaves_leaf_hash    UNIQUE (leaf_hash),
@@ -22,7 +22,7 @@ CREATE TABLE tree_nodes (
     level       INTEGER      NOT NULL,                  -- 0 = leaf hashes, 1 = parents, ...
     node_index  BIGINT       NOT NULL,                  -- 0-based index within the level
     node_hash   BYTEA        NOT NULL,                  -- 32-byte RFC 6962 node hash
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at  BIGINT       NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT, -- epoch ms
 
     CONSTRAINT pk_tree_nodes          PRIMARY KEY (level, node_index),
     CONSTRAINT ck_tree_nodes_level    CHECK (level >= 0),

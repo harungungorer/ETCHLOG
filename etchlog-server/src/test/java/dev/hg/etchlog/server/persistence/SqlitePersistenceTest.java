@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -53,6 +54,7 @@ class SqlitePersistenceTest {
     @Autowired TreeNodeRepository nodes;
     @Autowired SignedTreeHeadRepository sths;
     @Autowired ApiKeyRepository apiKeys;
+    @Autowired TestEntityManager em;
 
     private static byte[] hash(int seed) {
         byte[] h = new byte[32];
@@ -144,6 +146,33 @@ class SqlitePersistenceTest {
         apiKeys.save(active);
         assertThat(apiKeys.findByKeyHashAndActiveTrue(hash(7))).isEmpty();
         assertThat(apiKeys.findByKeyHash(hash(7)).orElseThrow().getRevokedAt()).isNotNull();
+    }
+
+    /**
+     * Regression for the SQLite timestamp bug: after the persistence context is cleared, reads must
+     * come from the JDBC ResultSet rather than the first-level cache. Hibernate stored {@code
+     * Instant} as epoch-millis text, but xerial's {@code getTimestamp} could not parse it, so any
+     * cross-session read failed. Storing timestamps as epoch-millis integers (via {@code
+     * InstantEpochMillisConverter}) makes the round-trip work on the embedded SQLite profile.
+     */
+    @Test
+    void timestampsRoundTripAcrossASessionClear() {
+        Instant ts = Instant.ofEpochMilli(1_750_000_000_123L);
+        leaves.save(new LeafEntity(0, hash(10), "x".getBytes()));
+        nodes.save(new TreeNodeEntity(0, 0, hash(11)));
+        sths.save(new SignedTreeHeadEntity(1, hash(1), ts, sig()));
+        apiKeys.save(new ApiKeyEntity(hash(7), "ci"));
+
+        // Drop the first-level cache so the following reads hit the database, not the session.
+        em.flush();
+        em.clear();
+
+        assertThat(leaves.findById(0L).orElseThrow().getCreatedAt()).isNotNull();
+        assertThat(nodes.findById(new TreeNodeId(0, 0)).orElseThrow().getCreatedAt()).isNotNull();
+        SignedTreeHeadEntity reloaded = sths.findById(1L).orElseThrow();
+        assertThat(reloaded.getTimestamp()).isEqualTo(ts);
+        assertThat(reloaded.getCreatedAt()).isNotNull();
+        assertThat(apiKeys.findByKeyHash(hash(7)).orElseThrow().getCreatedAt()).isNotNull();
     }
 
     @Test
