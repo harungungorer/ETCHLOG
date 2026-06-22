@@ -8,6 +8,13 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
 
+  # Render Spring's built-in exceptions (405, 415, unknown route, …) as RFC 9457
+  # application/problem+json too, so every error — framework or application (see
+  # ApiExceptionHandler) — shares one shape.
+  mvc:
+    problemdetails:
+      enabled: true
+
   # Default profile: embedded SQLite — the single-binary / demo footprint that boots with no
   # external database. Production self-hosting runs with `--spring.profiles.active=postgres`
   # (see application-postgres.yml), whose MVCC concurrency matters for the public read/proof path.

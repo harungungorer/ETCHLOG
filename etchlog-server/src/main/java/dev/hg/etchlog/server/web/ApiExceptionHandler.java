@@ -4,6 +4,8 @@ import dev.hg.etchlog.server.log.DuplicateLeafException;
 import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -22,8 +24,14 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  * and proof-consistency errors (404/409) for the read and proof endpoints are added alongside those
  * endpoints. A {@code 500} is never allowed to masquerade as a degraded proof — see {@code
  * docs/api/API_DOCUMENTATION.md}.
+ *
+ * <p>Ordered ahead of Spring's built-in problem-details advice ({@code spring.mvc.problemdetails})
+ * so these handlers — which add the contract's {@code timestamp}/{@code type} — win for the
+ * exceptions listed here, while framework exceptions we do not handle (405, 415, …) still render as
+ * {@code application/problem+json}.
  */
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
 
     private static final String PROBLEM_BASE = "https://etchlog.dev/problems/";
