@@ -52,4 +52,7 @@ management:
     health:
       probes:
         enabled: true
-      show-details: always
+      # Expose only the top-level UP/DOWN status to anonymous callers; component details
+      # (datasource connectivity, disk space, liveness) are disclosed only to authorized
+      # principals so the public health probe never leaks internal infrastructure state.
+      show-details: when-authorized

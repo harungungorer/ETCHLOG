@@ -139,6 +139,17 @@ class EntryControllerTest {
     }
 
     @Test
+    void getByHashWithWrongLengthReturns400() throws Exception {
+        // Well-formed Base64URL, but decodes to 4 bytes — not a 32-byte SHA-256 leaf hash.
+        String shortHash =
+                Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[] {1, 2, 3, 4});
+
+        mvc.perform(get("/api/v1/log/entries").param("hash", shortHash))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void getByHashForAbsentHashReturns404() throws Exception {
         // 32 zero bytes, Base64URL-encoded — well-formed but never in the log
         byte[] zeroes = new byte[32];

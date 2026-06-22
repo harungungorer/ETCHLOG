@@ -37,7 +37,18 @@ public class SigningConfig {
     private static final Logger log = LoggerFactory.getLogger(SigningConfig.class);
 
     /** Resolved signing keypair: loaded from configured PEM files, or generated for demo use. */
-    public record LogSigningKey(PrivateKey privateKey, PublicKey publicKey) {}
+    public record LogSigningKey(PrivateKey privateKey, PublicKey publicKey) {
+
+        /**
+         * Never render the private key. The default record {@code toString()} would include the
+         * {@link PrivateKey} component, so an accidental {@code log.debug(key)} or a config-binding
+         * report could surface the signing material; this override redacts it.
+         */
+        @Override
+        public String toString() {
+            return "LogSigningKey[privateKey=<redacted>, publicKey=" + publicKey + "]";
+        }
+    }
 
     @Bean
     public LogSigningKey logSigningKey(SigningProperties props) {

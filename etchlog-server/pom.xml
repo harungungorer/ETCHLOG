@@ -119,10 +119,57 @@
         </dependency>
     </dependencies>
 
-    <!--
-      The spring-boot-maven-plugin (repackage → executable/native jar) is added in
-      Milestone 3 once an application main class exists. Binding it now would fail
-      the build with "Unable to find main class". Its version is pinned in the
-      parent's pluginManagement.
-    -->
+    <build>
+        <plugins>
+            <!-- Repackage into a self-executing (fat) jar. EtchlogServerApplication provides the
+                 main class, so the default repackage execution binds cleanly. This is the JVM
+                 fallback artifact; the GraalVM native image lands in Milestone 9. Version is pinned
+                 in the parent's pluginManagement. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <!-- This project does not inherit spring-boot-starter-parent, which is what
+                         normally auto-binds repackage; declare it explicitly so `mvn package`
+                         produces a self-executing fat jar.
+
+                         The `exec` classifier keeps the plain thin jar as the module's MAIN
+                         artifact (…-0.1.0-SNAPSHOT.jar) and emits the runnable fat jar alongside it
+                         (…-0.1.0-SNAPSHOT-exec.jar). Without a classifier, repackage would replace
+                         the main artifact with the fat jar, and the failsafe integration tests —
+                         which run after `package` and resolve the project artifact — would no
+                         longer find the application classes (they live under BOOT-INF/classes). -->
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Bind the *IT integration tests (Testcontainers PostgreSQL: PostgresPersistenceIT,
+                 PostgresEndToEndIT) to the integration-test/verify phases. The parent configures
+                 failsafe's include pattern in pluginManagement, but config alone never binds the
+                 goals — without these executions the ITs would silently never run on `mvn verify`.
+                 Surefire's include whitelist (*Test/*Tests/*PropertyTest) already excludes *IT, so
+                 each IT runs exactly once, here. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

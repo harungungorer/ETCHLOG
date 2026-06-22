@@ -30,5 +30,13 @@ public interface TreeNodeRepository extends Repository<TreeNodeEntity, TreeNodeI
     /** All nodes at one level, ordered by position — used when materializing/scanning a level. */
     List<TreeNodeEntity> findByLevelOrderByNodeIndexAsc(int level);
 
+    /**
+     * Nodes at one level with {@code node_index < nodeIndexExclusive}, ordered by position. Backed
+     * by the {@code (level, node_index)} index so a proof against a historical {@code tree_size}
+     * reads only the leaf hashes it needs, rather than the whole level.
+     */
+    List<TreeNodeEntity> findByLevelAndNodeIndexLessThanOrderByNodeIndexAsc(
+            int level, long nodeIndexExclusive);
+
     long count();
 }

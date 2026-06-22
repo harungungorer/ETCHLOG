@@ -12,8 +12,6 @@ import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -113,10 +111,9 @@ public class LogService {
                     e.getTimestamp().toEpochMilli(),
                     e.getEd25519Signature());
         }
-        // Empty log: RFC 6962 MTH({}) = SHA-256 of the empty string. Computed directly rather than
-        // via the core empty-tree path (see ETCHLOG-36); signed on demand so the STH still
-        // verifies.
-        return signer.signSth(0, clock.millis(), sha256OfEmpty());
+        // Empty log: RFC 6962 MTH({}) = SHA-256("") from the core helper (the same value
+        // CachedMerkleTree yields for an empty tree); signed on demand so the genesis STH verifies.
+        return signer.signSth(0, clock.millis(), MerkleHash.emptyTreeHash());
     }
 
     /**
@@ -175,22 +172,25 @@ public class LogService {
 
     /**
      * Loads leaf hashes for indices {@code [0, n)} from the materialized level-0 nodes, in order.
+     * Fetches only the {@code n} rows the proof needs (range scan on the {@code (level,
+     * node_index)} index) instead of materializing the entire level, so proofs against a historical
+     * {@code tree_size} stay cheap on a large log.
      */
     private List<byte[]> leafHashesUpTo(long n) {
-        List<TreeNodeEntity> level0 = nodes.findByLevelOrderByNodeIndexAsc(0);
+        List<TreeNodeEntity> level0 =
+                nodes.findByLevelAndNodeIndexLessThanOrderByNodeIndexAsc(0, n);
+        if (level0.size() != n) {
+            // Level-0 nodes are materialized 1:1 with leaves, so [0, n) is always dense. A
+            // shortfall
+            // means the store is inconsistent — fail loudly rather than sign a truncated tree.
+            throw new IllegalStateException(
+                    "expected " + n + " level-0 nodes for the proof, found " + level0.size());
+        }
         List<byte[]> hashes = new ArrayList<>((int) n);
-        for (int i = 0; i < n; i++) {
-            hashes.add(level0.get(i).getNodeHash());
+        for (TreeNodeEntity node : level0) {
+            hashes.add(node.getNodeHash());
         }
         return hashes;
-    }
-
-    private static byte[] sha256OfEmpty() {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(new byte[0]);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 must be available on the JDK", e);
-        }
     }
 
     /**

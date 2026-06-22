@@ -1,12 +1,10 @@
 -- V4 (PostgreSQL): indexes for efficient audit-path / proof generation.
 --
 -- Audit-path sibling lookups hit the tree_nodes primary key (level, node_index) directly, so no
--- extra index is needed for the hot path. These indexes serve by-hash entry retrieval, range scans
--- while materializing a level, and the latest/previous STH queries.
-
--- get-entry by hash (the leaf_hash UNIQUE constraint already backs this; this index makes the
--- intent explicit and helps planners that prefer a dedicated lookup index).
-CREATE INDEX idx_leaves_leaf_hash ON leaves (leaf_hash);
+-- extra index is needed for the hot path. By-hash entry retrieval (find/exists by leaf_hash) is
+-- already served by the index PostgreSQL creates for the leaves.leaf_hash UNIQUE constraint, so no
+-- separate index is added for it. These indexes serve range scans while materializing a level and
+-- the latest/previous STH queries.
 
 -- Covering helper for range scans when materializing a level during STH recomputation.
 -- INCLUDE (node_hash) is a PostgreSQL covering index; SQLite ignores INCLUDE (plain index).
