@@ -1,0 +1,10 @@
+# Demo profile: convenience defaults for local/demo use — NEVER for production.
+# Activate with `--spring.profiles.active=demo` (combine with postgres if desired: `demo,postgres`).
+#
+# Supplies the well-known demo appender key so the single-binary demo boots with a working append
+# path out of the box. The server logs a loud WARN whenever this key is active. Replace it (set
+# ETCHLOG_API_KEY_PRIMARY and drop this profile) before exposing the server beyond localhost.
+etchlog:
+  security:
+    api-keys:
+      - etchlog-demo-key-change-me

@@ -1,5 +1,6 @@
 package dev.hg.etchlog.server.web;
 
+import dev.hg.etchlog.server.config.OpenApiConfig;
 import dev.hg.etchlog.server.log.AppendResult;
 import dev.hg.etchlog.server.log.LogService;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Base64;
@@ -72,9 +74,14 @@ public class LogController {
             description = "Missing or empty leaf_data",
             content = @Content(mediaType = PROBLEM_JSON))
     @ApiResponse(
+            responseCode = "401",
+            description = "Missing or invalid X-Api-Key",
+            content = @Content(mediaType = PROBLEM_JSON))
+    @ApiResponse(
             responseCode = "409",
             description = "A record with this leaf hash is already in the log",
             content = @Content(mediaType = PROBLEM_JSON))
+    @SecurityRequirement(name = OpenApiConfig.API_KEY_SCHEME)
     @PostMapping(
             path = "/entries",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -158,7 +165,13 @@ public class LogController {
             @Parameter(description = "Leaf hash, Base64URL-encoded (RFC 4648 §5, no padding)")
                     @RequestParam("hash")
                     String hash) {
-        byte[] leafHash = Base64.getUrlDecoder().decode(hash);
+        byte[] leafHash;
+        try {
+            leafHash = Base64.getUrlDecoder().decode(hash);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(
+                    "hash must be valid Base64URL (RFC 4648 §5, no padding): " + ex.getMessage());
+        }
         if (leafHash.length != LEAF_HASH_LENGTH) {
             throw new IllegalArgumentException(
                     "hash must decode to "

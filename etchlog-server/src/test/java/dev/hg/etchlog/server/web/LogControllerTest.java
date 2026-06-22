@@ -22,17 +22,22 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * End-to-end contract test for {@code POST /api/v1/log/entries} over the full Spring stack (real
- * {@link dev.hg.etchlog.server.log.LogService}, JPA/Flyway on temp SQLite, the security
- * placeholder, and the application-wide snake_case + Base64 JSON conventions). Confirms the
+ * {@link dev.hg.etchlog.server.log.LogService}, JPA/Flyway on temp SQLite, the appender-auth
+ * security filter, and the application-wide snake_case + Base64 JSON conventions). Confirms the
  * response shape and — crucially — that the returned STH actually verifies under the log's public
- * key, plus the documented 400/409 error behaviours.
+ * key, plus the documented 400/409 error behaviours. Every append carries the test {@code
+ * X-Api-Key}; the dedicated {@link AppendAuthorizationTest} covers the auth boundary itself.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class LogControllerTest {
+
+    /** Matches the key configured in {@code src/test/resources/application.properties}. */
+    private static final String API_KEY = "test-api-key";
 
     @TempDir static Path tempDir;
 
@@ -50,15 +55,20 @@ class LogControllerTest {
         return "{\"leaf_data\":\"" + leafDataBase64 + "\"}";
     }
 
+    /** An authenticated append request with the given JSON body. */
+    private static MockHttpServletRequestBuilder appendRequest(String jsonBody) {
+        return post("/api/v1/log/entries")
+                .header("X-Api-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonBody);
+    }
+
     @Test
     void appendReturns201WithAVerifiableSth() throws Exception {
         String payload = Base64.getEncoder().encodeToString("hello etchlog".getBytes());
 
         MvcResult res =
-                mvc.perform(
-                                post("/api/v1/log/entries")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(body(payload)))
+                mvc.perform(appendRequest(body(payload)))
                         .andExpect(status().isCreated())
                         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                         .andExpect(jsonPath("$.leaf_index").isNumber())
@@ -85,10 +95,7 @@ class LogControllerTest {
 
     @Test
     void missingLeafDataIsRejectedWithProblemDetail() throws Exception {
-        mvc.perform(
-                        post("/api/v1/log/entries")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}"))
+        mvc.perform(appendRequest("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
@@ -100,34 +107,19 @@ class LogControllerTest {
 
     @Test
     void emptyLeafDataIsRejected() throws Exception {
-        mvc.perform(
-                        post("/api/v1/log/entries")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body("")))
-                .andExpect(status().isBadRequest());
+        mvc.perform(appendRequest(body(""))).andExpect(status().isBadRequest());
     }
 
     @Test
     void invalidBase64IsRejected() throws Exception {
-        mvc.perform(
-                        post("/api/v1/log/entries")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body("@@@not-base64@@@")))
-                .andExpect(status().isBadRequest());
+        mvc.perform(appendRequest(body("@@@not-base64@@@"))).andExpect(status().isBadRequest());
     }
 
     @Test
     void duplicateAppendReturns409() throws Exception {
         String payload = Base64.getEncoder().encodeToString("dup-record".getBytes());
-        mvc.perform(
-                        post("/api/v1/log/entries")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body(payload)))
-                .andExpect(status().isCreated());
-        mvc.perform(
-                        post("/api/v1/log/entries")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body(payload)))
+        mvc.perform(appendRequest(body(payload))).andExpect(status().isCreated());
+        mvc.perform(appendRequest(body(payload)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
     }

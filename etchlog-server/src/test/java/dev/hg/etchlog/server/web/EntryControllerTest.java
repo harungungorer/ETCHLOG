@@ -62,6 +62,7 @@ class EntryControllerTest {
         MvcResult res =
                 mvc.perform(
                                 post("/api/v1/log/entries")
+                                        .header("X-Api-Key", "test-api-key")
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(body(b64)))
                         .andExpect(status().isCreated())

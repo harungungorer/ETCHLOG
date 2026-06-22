@@ -61,6 +61,7 @@ class ProofAndSthControllerTest {
             byte[] payload = ("proof-entry-" + i).getBytes();
             mvc.perform(
                             post("/api/v1/log/entries")
+                                    .header("X-Api-Key", "test-api-key")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("{\"leaf_data\":\"" + b64(payload) + "\"}"))
                     .andExpect(status().isCreated());

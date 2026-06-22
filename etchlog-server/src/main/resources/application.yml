@@ -43,6 +43,17 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
 
+# Appender API keys (etchlog.security.api-keys) are intentionally NOT set here — committing keys is a
+# leak risk, and an empty default would only fail the server closed at startup. Configure them at
+# deploy time instead; the server hashes each RAW key once and discards the plaintext:
+#
+#   * Production: set the env var ETCHLOG_SECURITY_API_KEYS to one (or a comma-separated set, for
+#     zero-downtime rotation) of high-entropy keys, e.g.
+#       export ETCHLOG_SECURITY_API_KEYS="etchlog_ak_...,etchlog_ak_old..."
+#   * Local/demo: run with the `demo` profile (application-demo.yml) for the built-in demo key.
+#
+# With no key configured the append endpoint is unreachable and the server fails fast (fail-closed).
+
 management:
   endpoints:
     web:

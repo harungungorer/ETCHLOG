@@ -20,8 +20,24 @@ import dev.hg.etchlog.server.persistence.entity.LeafEntity;
  */
 public record EntryResponse(long leafIndex, byte[] leafData, byte[] leafHash) {
 
+    /** Defensively clones the mutable {@code byte[]} fields so the DTO is self-contained. */
+    public EntryResponse {
+        leafData = leafData == null ? null : leafData.clone();
+        leafHash = leafHash == null ? null : leafHash.clone();
+    }
+
     /** Projects a {@link LeafEntity} into its public JSON shape. */
     public static EntryResponse from(LeafEntity leaf) {
         return new EntryResponse(leaf.getLeafIndex(), leaf.getPayload(), leaf.getLeafHash());
+    }
+
+    @Override
+    public byte[] leafData() {
+        return leafData == null ? null : leafData.clone();
+    }
+
+    @Override
+    public byte[] leafHash() {
+        return leafHash == null ? null : leafHash.clone();
     }
 }

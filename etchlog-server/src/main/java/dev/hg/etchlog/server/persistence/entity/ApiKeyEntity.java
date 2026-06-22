@@ -31,7 +31,8 @@ public class ApiKeyEntity {
     @Column(name = "key_hash", nullable = false, updatable = false, length = 32)
     private byte[] keyHash;
 
-    @Column(name = "label", nullable = false, length = 128)
+    /** Operator-assigned, set once at issuance; {@code updatable = false} keeps it immutable. */
+    @Column(name = "label", nullable = false, updatable = false, length = 128)
     private String label;
 
     @Column(name = "active", nullable = false)

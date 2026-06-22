@@ -73,6 +73,7 @@ class PostgresEndToEndIT {
                     json.readTree(
                             mvc.perform(
                                             post("/api/v1/log/entries")
+                                                    .header("X-Api-Key", "test-api-key")
                                                     .contentType(MediaType.APPLICATION_JSON)
                                                     .content(
                                                             "{\"leaf_data\":\""
