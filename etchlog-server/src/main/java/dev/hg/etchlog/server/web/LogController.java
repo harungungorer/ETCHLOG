@@ -5,7 +5,10 @@ import dev.hg.etchlog.server.log.LogService;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.web.dto.AppendRequest;
 import dev.hg.etchlog.server.web.dto.AppendResponse;
+import dev.hg.etchlog.server.web.dto.ConsistencyProofResponse;
 import dev.hg.etchlog.server.web.dto.EntryResponse;
+import dev.hg.etchlog.server.web.dto.InclusionProofResponse;
+import dev.hg.etchlog.server.web.dto.SthResponse;
 import jakarta.validation.Valid;
 import java.util.Base64;
 import org.springframework.http.HttpStatus;
@@ -98,5 +101,47 @@ public class LogController {
                                         new LeafNotFoundException(
                                                 "No leaf with the given hash exists in the log"));
         return EntryResponse.from(leaf);
+    }
+
+    /**
+     * Generates an inclusion (audit) proof that the leaf at {@code leaf_index} is committed in the
+     * tree of size {@code tree_size}. Public — no authentication required.
+     *
+     * @return {@code 200 OK} with {@code leaf_index}, {@code tree_size}, and the {@code audit_path}
+     * @throws IllegalArgumentException mapped to {@code 400} for an out-of-range index/size
+     * @throws dev.hg.etchlog.server.log.ProofNotAvailableException mapped to {@code 404} when
+     *     {@code tree_size} exceeds the current log size
+     */
+    @GetMapping(path = "/proofs/inclusion", produces = MediaType.APPLICATION_JSON_VALUE)
+    public InclusionProofResponse inclusionProof(
+            @RequestParam("leaf_index") long leafIndex, @RequestParam("tree_size") long treeSize) {
+        return new InclusionProofResponse(
+                leafIndex, treeSize, logService.inclusionAuditPath(leafIndex, treeSize));
+    }
+
+    /**
+     * Generates a consistency proof that the size-{@code first} log is an append-only prefix of the
+     * size-{@code second} log. Public — no authentication required.
+     *
+     * @return {@code 200 OK} with {@code first}, {@code second}, and the {@code proof} nodes
+     * @throws IllegalArgumentException mapped to {@code 400} when {@code first > second} or
+     *     negative
+     * @throws dev.hg.etchlog.server.log.ProofNotAvailableException mapped to {@code 404} when
+     *     {@code second} exceeds the current log size
+     */
+    @GetMapping(path = "/proofs/consistency", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ConsistencyProofResponse consistencyProof(
+            @RequestParam("first") long first, @RequestParam("second") long second) {
+        return new ConsistencyProofResponse(
+                first, second, logService.consistencyProofNodes(first, second));
+    }
+
+    /**
+     * Returns the log's latest Signed Tree Head (the genesis empty STH for an empty log). Public —
+     * no authentication required.
+     */
+    @GetMapping(path = "/sth", produces = MediaType.APPLICATION_JSON_VALUE)
+    public SthResponse signedTreeHead() {
+        return SthResponse.from(logService.currentSth());
     }
 }

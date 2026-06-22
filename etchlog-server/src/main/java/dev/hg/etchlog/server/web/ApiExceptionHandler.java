@@ -1,12 +1,14 @@
 package dev.hg.etchlog.server.web;
 
 import dev.hg.etchlog.server.log.DuplicateLeafException;
+import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -82,8 +84,8 @@ public class ApiExceptionHandler {
     }
 
     /**
-     * A path variable could not be converted to its declared type — e.g. a non-numeric {@code
-     * {index}} in {@code /entries/{index}} yields a 400 rather than a 500.
+     * A path variable or query parameter could not be converted to its declared type — e.g. a
+     * non-numeric {@code {index}} or {@code tree_size} yields a 400 rather than a 500.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(
@@ -92,7 +94,31 @@ public class ApiExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "bad-request",
                 "Bad Request",
-                "Path variable '" + ex.getName() + "' has an invalid value: " + ex.getValue(),
+                "Parameter '" + ex.getName() + "' has an invalid value: " + ex.getValue(),
+                request);
+    }
+
+    /** A required query parameter was absent (e.g. {@code hash}, {@code leaf_index}). */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingParam(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "bad-request",
+                "Bad Request",
+                "Required parameter '" + ex.getParameterName() + "' is missing.",
+                request);
+    }
+
+    /** A proof was requested against a tree size the log has not yet reached. */
+    @ExceptionHandler(ProofNotAvailableException.class)
+    public ProblemDetail handleProofNotAvailable(
+            ProofNotAvailableException ex, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "tree-size-out-of-range",
+                "Tree Size Out Of Range",
+                ex.getMessage(),
                 request);
     }
 

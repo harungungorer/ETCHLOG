@@ -1,6 +1,8 @@
 package dev.hg.etchlog.server.log;
 
 import dev.hg.etchlog.core.hash.MerkleHash;
+import dev.hg.etchlog.core.proof.ConsistencyProof;
+import dev.hg.etchlog.core.proof.InclusionProof;
 import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.core.tree.CachedMerkleTree;
@@ -10,6 +12,8 @@ import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -87,6 +91,106 @@ public class LogService {
      */
     public Optional<LeafEntity> findEntryByHash(byte[] leafHash) {
         return leaves.findByLeafHash(leafHash);
+    }
+
+    /** The current tree size (number of leaves committed so far). */
+    public long currentTreeSize() {
+        return leaves.count();
+    }
+
+    /**
+     * The log's latest Signed Tree Head. For an empty log this synthesizes (and signs, but does not
+     * persist) the genesis STH: {@code tree_size = 0} with the RFC 6962 empty-tree hash {@code
+     * SHA-256("")}.
+     */
+    public SignedTreeHead currentSth() {
+        Optional<SignedTreeHeadEntity> latest = sths.findFirstByOrderByTreeSizeDesc();
+        if (latest.isPresent()) {
+            SignedTreeHeadEntity e = latest.get();
+            return new SignedTreeHead(
+                    e.getTreeSize(),
+                    e.getRootHash(),
+                    e.getTimestamp().toEpochMilli(),
+                    e.getEd25519Signature());
+        }
+        // Empty log: RFC 6962 MTH({}) = SHA-256 of the empty string. Computed directly rather than
+        // via the core empty-tree path (see ETCHLOG-36); signed on demand so the STH still
+        // verifies.
+        return signer.signSth(0, clock.millis(), sha256OfEmpty());
+    }
+
+    /**
+     * Generates the RFC 6962 inclusion (audit) path for {@code leafIndex} in the tree of size
+     * {@code treeSize}.
+     *
+     * @throws IllegalArgumentException (→ 400) if {@code leafIndex < 0}, {@code treeSize <= 0}, or
+     *     {@code leafIndex >= treeSize}
+     * @throws ProofNotAvailableException (→ 404) if {@code treeSize} exceeds the current log size
+     */
+    public List<byte[]> inclusionAuditPath(long leafIndex, long treeSize) {
+        if (leafIndex < 0 || treeSize <= 0 || leafIndex >= treeSize) {
+            throw new IllegalArgumentException(
+                    "require 0 <= leaf_index < tree_size (got leaf_index="
+                            + leafIndex
+                            + ", tree_size="
+                            + treeSize
+                            + ")");
+        }
+        long size = leaves.count();
+        if (treeSize > size) {
+            throw new ProofNotAvailableException(
+                    "tree_size " + treeSize + " exceeds the current log size " + size);
+        }
+        return InclusionProof.generate(leafHashesUpTo(treeSize), leafIndex, treeSize);
+    }
+
+    /**
+     * Generates the RFC 6962 consistency proof between sizes {@code first} and {@code second}. A
+     * {@code first} of {@code 0} (the empty prefix) or {@code first == second} needs no nodes and
+     * returns an empty proof.
+     *
+     * @throws IllegalArgumentException (→ 400) if {@code first < 0}, {@code second < 0}, or {@code
+     *     first > second}
+     * @throws ProofNotAvailableException (→ 404) if {@code second} exceeds the current log size
+     */
+    public List<byte[]> consistencyProofNodes(long first, long second) {
+        if (first < 0 || second < 0 || first > second) {
+            throw new IllegalArgumentException(
+                    "require 0 <= first <= second (got first="
+                            + first
+                            + ", second="
+                            + second
+                            + ")");
+        }
+        long size = leaves.count();
+        if (second > size) {
+            throw new ProofNotAvailableException(
+                    "second " + second + " exceeds the current log size " + size);
+        }
+        if (first == 0 || first == second) {
+            return List.of();
+        }
+        return ConsistencyProof.generate(leafHashesUpTo(second), first, second);
+    }
+
+    /**
+     * Loads leaf hashes for indices {@code [0, n)} from the materialized level-0 nodes, in order.
+     */
+    private List<byte[]> leafHashesUpTo(long n) {
+        List<TreeNodeEntity> level0 = nodes.findByLevelOrderByNodeIndexAsc(0);
+        List<byte[]> hashes = new ArrayList<>((int) n);
+        for (int i = 0; i < n; i++) {
+            hashes.add(level0.get(i).getNodeHash());
+        }
+        return hashes;
+    }
+
+    private static byte[] sha256OfEmpty() {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(new byte[0]);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 must be available on the JDK", e);
+        }
     }
 
     /**
