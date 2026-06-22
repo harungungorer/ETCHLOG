@@ -59,9 +59,11 @@ public final class ConsistencyVerifier {
                 return false; // ran out of tree before the proof was exhausted
             }
             if ((fn & 1) == 1 || fn == sn) { // right child
-                if (!mIsPowerOfTwo || fn != 0) {
-                    node1 = MerkleHash.hashChildren(c, node1); // contributes to OLD root
-                }
+                // Both reconstructions absorb this node as a LEFT sibling. fn is always >= 1 here
+                // (the branch needs fn odd or fn == sn, and sn == 0 is rejected just above), so the
+                // OLD root keeps advancing even when m is a power of two — exactly the canonical
+                // RFC 6962 / Trillian step, with no special-casing needed.
+                node1 = MerkleHash.hashChildren(c, node1); // contributes to OLD root
                 node2 = MerkleHash.hashChildren(c, node2); // contributes to NEW root
                 while ((fn & 1) == 0 && fn != 0) {
                     fn >>= 1;

@@ -133,6 +133,14 @@ class EntryControllerTest {
     }
 
     @Test
+    void getByNegativeIndexReturns400() throws Exception {
+        mvc.perform(get("/api/v1/log/entries/-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").isString());
+    }
+
+    @Test
     void getByHashWithInvalidBase64UrlReturns400() throws Exception {
         mvc.perform(get("/api/v1/log/entries").param("hash", "@@@notbase64@@@"))
                 .andExpect(status().isBadRequest());

@@ -41,9 +41,10 @@ class CryptoCorePurityTest {
                         .resideInAnyPackage(
                                 "jakarta.persistence..",
                                 "jakarta.servlet..",
+                                "jakarta.ws.rs..",
                                 "javax.persistence..",
                                 "org.hibernate..")
-                        .as("etchlog-core must not depend on JPA or the web/servlet stack");
+                        .as("etchlog-core must not depend on JPA or the web/servlet/JAX-RS stack");
         rule.check(CORE);
     }
 

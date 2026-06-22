@@ -1,7 +1,6 @@
 package dev.hg.etchlog.server.persistence.repository;
 
 import dev.hg.etchlog.server.persistence.entity.ApiKeyEntity;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.repository.Repository;
@@ -25,8 +24,6 @@ public interface ApiKeyRepository extends Repository<ApiKeyEntity, UUID> {
     Optional<ApiKeyEntity> findByKeyHash(byte[] keyHash);
 
     Optional<ApiKeyEntity> findByKeyHashAndActiveTrue(byte[] keyHash);
-
-    List<ApiKeyEntity> findAll();
 
     long count();
 }

@@ -5,7 +5,6 @@ import dev.hg.etchlog.core.proof.ConsistencyProof;
 import dev.hg.etchlog.core.proof.InclusionProof;
 import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
-import dev.hg.etchlog.core.tree.CachedMerkleTree;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
 import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
@@ -36,8 +35,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>inside one transaction so a partial append (leaf without its STH) can never be observed.
  * </ul>
  *
- * <p>Correctness is paramount: the root committed by each STH is computed by {@code etchlog-core}
- * ({@link CachedMerkleTree}, cross-checked against the reference MTH by the core property tests),
+ * <p>Correctness is paramount: each STH commits the RFC 6962 tree head, recomputed after every
+ * append by right-folding the roots of the perfect subtrees that tile the log — the stable nodes
+ * {@link #materializeCompletedNodes} persists, each built with {@code etchlog-core}'s {@link
+ * MerkleHash}. This reads only {@code O(log N)} nodes per append, never the whole leaf set. The
+ * append property tests cross-check every signed root against the reference {@code MerkleTreeHash},
  * so the head this service signs is exactly the one every standalone verifier will reconstruct.
  *
  * @see <a
@@ -111,8 +113,8 @@ public class LogService {
                     e.getTimestamp().toEpochMilli(),
                     e.getEd25519Signature());
         }
-        // Empty log: RFC 6962 MTH({}) = SHA-256("") from the core helper (the same value
-        // CachedMerkleTree yields for an empty tree); signed on demand so the genesis STH verifies.
+        // Empty log: RFC 6962 MTH({}) = SHA-256("") from the core helper; signed on demand so the
+        // genesis STH verifies even before the first append persists a head.
         return signer.signSth(0, clock.millis(), MerkleHash.emptyTreeHash());
     }
 
@@ -228,25 +230,18 @@ public class LogService {
         long index = leaves.nextLeafIndex(); // == current tree size
         long treeSize = index + 1;
 
-        // Build the ordered leaf-hash list (0..index): the persisted level-0 nodes (0..index-1)
-        // plus this new leaf. Read before materializing so we never depend on flush ordering.
-        List<TreeNodeEntity> level0 = nodes.findByLevelOrderByNodeIndexAsc(0);
-        List<byte[]> leafHashes = new ArrayList<>(level0.size() + 1);
-        for (TreeNodeEntity n : level0) {
-            leafHashes.add(n.getNodeHash());
-        }
-        leafHashes.add(leafHash);
-        byte[] root = CachedMerkleTree.of(leafHashes).root();
-
         // Persist the append-only leaf row.
         leaves.save(new LeafEntity(index, leafHash, payloadOrNull));
 
         // Materialize the newly completed left-edge perfect-subtree nodes (the stable nodes that
         // never change as the tree grows). Ephemeral right-spine nodes are recomputed at proof
-        // time.
+        // time. This runs before the head is folded so every perfect-subtree root is present.
         materializeCompletedNodes(index, leafHash);
 
-        // Recompute → sign → persist the new head. timestamp(ms) is signed and stored identically.
+        // Fold the RFC 6962 head from the just-persisted perfect-subtree roots — O(log N) reads.
+        byte[] root = rootFromPerfectSubtrees(treeSize);
+
+        // Sign → persist the new head. timestamp(ms) is signed and stored identically.
         long timestampMs = clock.millis();
         SignedTreeHead sth = signer.signSth(treeSize, timestampMs, root);
         sths.save(
@@ -254,6 +249,43 @@ public class LogService {
                         treeSize, root, Instant.ofEpochMilli(timestampMs), sth.signature()));
 
         return new AppendResult(index, sth);
+    }
+
+    /**
+     * Computes the RFC 6962 tree head for a tree of {@code treeSize} leaves by right-folding the
+     * roots of the perfect subtrees that tile {@code [0, treeSize)}. Each set bit of {@code
+     * treeSize} is one such subtree of size {@code 2^level}, whose root is the stable node at
+     * {@code (level, offset >> level)} persisted by {@link #materializeCompletedNodes}. Folding
+     * from the smallest (rightmost) subtree outward reproduces the left-balanced MTH {@code H(P0,
+     * H(P1, H(..., Pt)))}, where {@code P0} is the largest, leftmost subtree.
+     *
+     * <p>Reads only {@code Long.bitCount(treeSize)} (≤ 64) nodes, so an append stays {@code O(log
+     * N)} instead of re-reading all {@code N} leaves. Requires {@code treeSize >= 1}.
+     */
+    private byte[] rootFromPerfectSubtrees(long treeSize) {
+        List<byte[]> subtreeRoots = new ArrayList<>(Long.bitCount(treeSize));
+        long offset = 0;
+        for (int level = 63 - Long.numberOfLeadingZeros(treeSize); level >= 0; level--) {
+            long span = 1L << level;
+            if ((treeSize & span) != 0) {
+                long nodeIndex = offset >> level;
+                byte[] hash =
+                        nodes.findByLevelAndNodeIndex(level, nodeIndex)
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalStateException(
+                                                        "missing perfect-subtree node while"
+                                                                + " computing the tree head"))
+                                .getNodeHash();
+                subtreeRoots.add(hash);
+                offset += span;
+            }
+        }
+        byte[] root = subtreeRoots.get(subtreeRoots.size() - 1);
+        for (int i = subtreeRoots.size() - 2; i >= 0; i--) {
+            root = MerkleHash.hashChildren(subtreeRoots.get(i), root);
+        }
+        return root;
     }
 
     /**

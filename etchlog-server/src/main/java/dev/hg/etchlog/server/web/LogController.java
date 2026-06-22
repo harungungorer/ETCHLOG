@@ -91,6 +91,7 @@ public class LogController {
      * @param index the leaf index ({@code 0 ≤ index < tree_size})
      * @return {@code 200 OK} with {@code leaf_index}, {@code leaf_data} (standard Base64), and
      *     {@code leaf_hash} (standard Base64)
+     * @throws IllegalArgumentException mapped to {@code 400} when {@code index} is negative
      * @throws LeafNotFoundException mapped to {@code 404} when no leaf exists at that index
      */
     @Operation(
@@ -98,6 +99,10 @@ public class LogController {
             description =
                     "Fetches the stored leaf at a zero-based index. Public — no auth required.")
     @ApiResponse(responseCode = "200", description = "The leaf at the given index")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Negative leaf index",
+            content = @Content(mediaType = PROBLEM_JSON))
     @ApiResponse(
             responseCode = "404",
             description = "No leaf exists at that index",
@@ -107,6 +112,9 @@ public class LogController {
             @Parameter(description = "Zero-based leaf index (0 ≤ index < tree_size)")
                     @PathVariable("index")
                     long index) {
+        if (index < 0) {
+            throw new IllegalArgumentException("leaf index must be non-negative; got " + index);
+        }
         LeafEntity leaf =
                 logService
                         .findEntry(index)
