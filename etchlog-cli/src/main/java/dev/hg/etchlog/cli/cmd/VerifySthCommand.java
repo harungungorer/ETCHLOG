@@ -1,6 +1,7 @@
 package dev.hg.etchlog.cli.cmd;
 
 import dev.hg.etchlog.cli.io.CliOutput;
+import dev.hg.etchlog.cli.io.HttpLogClient;
 import dev.hg.etchlog.cli.io.PemPublicKey;
 import dev.hg.etchlog.cli.io.ProofJson;
 import dev.hg.etchlog.core.sth.SthVerifier;
@@ -27,10 +28,16 @@ public final class VerifySthCommand implements Callable<Integer> {
 
     @Option(
             names = "--sth",
-            required = true,
             paramLabel = "<file>",
-            description = "STH JSON file (use - for stdin).")
+            description = "STH JSON file (use - for stdin). Alternative to --url.")
     private Path sthFile;
+
+    @Option(
+            names = "--url",
+            paramLabel = "<baseUrl>",
+            description =
+                    "Fetch the current STH from a running server, e.g. http://localhost:8080.")
+    private String url;
 
     @Option(
             names = "--pubkey",
@@ -47,10 +54,13 @@ public final class VerifySthCommand implements Callable<Integer> {
         PublicKey publicKey;
         ProofJson.Sth sth;
         try {
+            if ((sthFile != null) == (url != null)) {
+                throw new IllegalArgumentException("provide exactly one of --sth or --url");
+            }
             publicKey = PemPublicKey.load(pubkeyFile);
-            sth = ProofJson.readSth(sthFile);
+            sth = (url != null) ? new HttpLogClient(url).fetchSth() : ProofJson.readSth(sthFile);
         } catch (Exception e) {
-            return CliOutput.inputError(err, e.getMessage());
+            return CliOutput.inputError(err, e);
         }
 
         boolean ok =

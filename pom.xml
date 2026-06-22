@@ -36,6 +36,7 @@
         <sqlite-jdbc.version>3.47.1.0</sqlite-jdbc.version>
         <bouncycastle.version>1.79</bouncycastle.version>
         <spotless.version>2.43.0</spotless.version>
+        <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -142,6 +143,11 @@
                     <configuration>
                         <release>${maven.compiler.release}</release>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven-jar-plugin.version}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

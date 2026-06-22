@@ -40,4 +40,14 @@ public final class CliOutput {
         err.println("error: " + message);
         return INPUT_ERROR;
     }
+
+    /**
+     * Prints an input/usage error from an exception, falling back to the exception type when its
+     * message is {@code null} (e.g. a bare {@code ConnectException}) so the user never sees "error:
+     * null".
+     */
+    public static int inputError(PrintWriter err, Throwable e) {
+        String message = e.getMessage();
+        return inputError(err, message != null ? message : e.getClass().getSimpleName());
+    }
 }

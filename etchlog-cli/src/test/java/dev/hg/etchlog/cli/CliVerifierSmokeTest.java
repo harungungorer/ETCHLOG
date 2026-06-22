@@ -206,6 +206,174 @@ class CliVerifierSmokeTest {
         assertThat(r.out).contains("etchlog");
     }
 
+    // ---- alternative leaf-input modes (--leaf-file, --leaf-hash) ------------------------------
+
+    @Test
+    void verifyInclusion_passes_withLeafFile() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path sth = writeSth(n);
+        Path proof = writeInclusion(i, n);
+        Path leafBin = write("leaf.bin", new String(leafData.get((int) i), StandardCharsets.UTF_8));
+
+        Result r =
+                run(
+                        "verify", "inclusion",
+                        "--leaf-file", leafBin.toString(),
+                        "--audit-path", proof.toString(),
+                        "--sth", sth.toString(),
+                        "--pubkey", pubkeyPem.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.OK);
+        assertThat(r.out).contains("VERIFIED");
+    }
+
+    @Test
+    void verifyInclusion_failsWithLeafFile_afterTamper() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path sth = writeSth(n);
+        Path proof = writeInclusion(i, n);
+        Path leafBin = write("leaf.bin", "entry-3-TAMPERED");
+
+        Result r =
+                run(
+                        "verify", "inclusion",
+                        "--leaf-file", leafBin.toString(),
+                        "--audit-path", proof.toString(),
+                        "--sth", sth.toString(),
+                        "--pubkey", pubkeyPem.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+    }
+
+    @Test
+    void verifyInclusion_passes_withPrecomputedLeafHash() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path sth = writeSth(n);
+        Path proof = writeInclusion(i, n);
+        String leafHashB64 = b64.encodeToString(leafHashes.get((int) i));
+
+        Result r =
+                run(
+                        "verify", "inclusion",
+                        "--leaf-hash", leafHashB64,
+                        "--audit-path", proof.toString(),
+                        "--sth", sth.toString(),
+                        "--pubkey", pubkeyPem.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.OK);
+        assertThat(r.out).contains("VERIFIED");
+    }
+
+    // ---- raw-root modes (--root, --old-root/--new-root; no STH signature) ---------------------
+
+    @Test
+    void verifyInclusion_passes_withRawRoot() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path proof = writeInclusion(i, n);
+
+        Result r =
+                run(
+                        "verify", "inclusion",
+                        "--leaf", leafStr(i),
+                        "--audit-path", proof.toString(),
+                        "--root", b64.encodeToString(rootAt(n)));
+        assertThat(r.exit).isEqualTo(CliOutput.OK);
+        assertThat(r.out).contains("supplied root");
+    }
+
+    @Test
+    void verifyInclusion_failsWithRawRoot_afterTamper() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path proof = writeInclusion(i, n);
+
+        // Correct root, but the operator presents a different leaf value.
+        Result r =
+                run(
+                        "verify",
+                        "inclusion",
+                        "--leaf",
+                        "entry-3-FORGED",
+                        "--audit-path",
+                        proof.toString(),
+                        "--root",
+                        b64.encodeToString(rootAt(n)));
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+    }
+
+    @Test
+    void verifyConsistency_passes_withRawRoots() throws Exception {
+        Path proof = writeConsistency(4, 7);
+
+        Result r =
+                run(
+                        "verify", "consistency",
+                        "--proof", proof.toString(),
+                        "--old-root", b64.encodeToString(rootAt(4)),
+                        "--new-root", b64.encodeToString(rootAt(7)));
+        assertThat(r.exit).isEqualTo(CliOutput.OK);
+        assertThat(r.out).contains("supplied roots");
+    }
+
+    @Test
+    void verifyConsistency_failsWithRawRoots_afterTamper() throws Exception {
+        // Valid (4 -> 7) proof, but the old root claimed is the size-5 root — not the prefix.
+        Path proof = writeConsistency(4, 7);
+
+        Result r =
+                run(
+                        "verify", "consistency",
+                        "--proof", proof.toString(),
+                        "--old-root", b64.encodeToString(rootAt(5)),
+                        "--new-root", b64.encodeToString(rootAt(7)));
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+    }
+
+    // ---- trust ordering: STH signed by the wrong key must be rejected before its root is used --
+
+    @Test
+    void verifyInclusion_failsWhenSthSignedByWrongKey() throws Exception {
+        long n = 7;
+        long i = 3;
+        Path sth = writeSth(n); // signed by the genuine key
+        Path proof = writeInclusion(i, n);
+        Path foreignPub = writeForeignPublicKeyPem(); // an unrelated public key
+
+        Result r =
+                run(
+                        "verify", "inclusion",
+                        "--leaf", leafStr(i),
+                        "--audit-path", proof.toString(),
+                        "--sth", sth.toString(),
+                        "--pubkey", foreignPub.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+        assertThat(r.out).containsIgnoringCase("untrusted");
+    }
+
+    @Test
+    void verifyConsistency_failsWhenSthSignedByWrongKey() throws Exception {
+        Path oldSth = writeSth("old-sth.json", 4);
+        Path newSth = writeSth("new-sth.json", 7);
+        Path proof = writeConsistency(4, 7);
+        Path foreignPub = writeForeignPublicKeyPem();
+
+        Result r =
+                run(
+                        "verify", "consistency",
+                        "--proof", proof.toString(),
+                        "--old-sth", oldSth.toString(),
+                        "--new-sth", newSth.toString(),
+                        "--pubkey", foreignPub.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+        assertThat(r.out).containsIgnoringCase("untrusted");
+    }
+
     // ---- helpers ------------------------------------------------------------------------------
 
     private record Result(int exit, String out, String err) {}
@@ -287,12 +455,30 @@ class CliVerifierSmokeTest {
     }
 
     private Path writePublicKeyPem(byte[] spkiDer) throws Exception {
+        return writePublicKeyPem("etchlog-public-key.pem", spkiDer);
+    }
+
+    private Path writePublicKeyPem(String name, byte[] spkiDer) throws Exception {
         String body =
                 Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
                         .encodeToString(spkiDer);
         String pem = "-----BEGIN PUBLIC KEY-----\n" + body + "\n-----END PUBLIC KEY-----\n";
-        Path p = dir.resolve("etchlog-public-key.pem");
+        Path p = dir.resolve(name);
         Files.writeString(p, pem);
         return p;
+    }
+
+    /** A public-key PEM for a DIFFERENT, unrelated Ed25519 key — used to fail signature checks. */
+    private Path writeForeignPublicKeyPem() throws Exception {
+        KeyPair foreign = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+        return writePublicKeyPem("foreign-public-key.pem", foreign.getPublic().getEncoded());
+    }
+
+    private String leafStr(long i) {
+        return new String(leafData.get((int) i), StandardCharsets.UTF_8);
+    }
+
+    private byte[] rootAt(long n) {
+        return MerkleTreeHash.mth(leafHashes.subList(0, (int) n));
     }
 }

@@ -64,6 +64,21 @@ public final class ProofJson {
         return read(file, Consistency.class);
     }
 
+    /** Parses an STH from a JSON string (e.g. an HTTP response body). */
+    public static Sth parseSth(String json) throws IOException {
+        return MAPPER.readValue(json, Sth.class);
+    }
+
+    /** Parses an inclusion proof from a JSON string. */
+    public static Inclusion parseInclusion(String json) throws IOException {
+        return MAPPER.readValue(json, Inclusion.class);
+    }
+
+    /** Parses a consistency proof from a JSON string. */
+    public static Consistency parseConsistency(String json) throws IOException {
+        return MAPPER.readValue(json, Consistency.class);
+    }
+
     /** Reads {@code -} as stdin, any other path as a file. */
     private static <T> T read(Path file, Class<T> type) throws IOException {
         if (file.toString().equals("-")) {
