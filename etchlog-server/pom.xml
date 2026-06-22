@@ -110,6 +110,13 @@
             <artifactId>archunit-junit5</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Property-based tests for the append path's correctness invariants
+             (dense indices, root == reference MTH, STH verifies). Version managed by the parent. -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <!--
