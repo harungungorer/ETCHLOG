@@ -1,0 +1,16 @@
+# Production profile: PostgreSQL (primary/production store).
+# Activate with `--spring.profiles.active=postgres`. Overrides the default SQLite datasource;
+# Flyway's {vendor} placeholder then resolves to `postgresql` (db/migration/postgresql/).
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:etchlog}
+    username: ${PGUSER:etchlog}
+    password: ${PGPASSWORD:etchlog}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

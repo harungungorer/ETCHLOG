@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: etchlog
+
+  # Default profile: embedded SQLite — the single-binary / demo footprint that boots with no
+  # external database. Production self-hosting runs with `--spring.profiles.active=postgres`
+  # (see application-postgres.yml), whose MVCC concurrency matters for the public read/proof path.
+  datasource:
+    url: jdbc:sqlite:${ETCHLOG_DB_PATH:./data/etchlog.db}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite is a single-writer file lock; one pooled connection avoids SQLITE_BUSY contention.
+      maximum-pool-size: 1
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. Hibernate never generates or alters DDL.
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect
+
+  # Schema is versioned with Flyway, run on startup. The {vendor} placeholder resolves to the
+  # database id derived from the JDBC URL — `sqlite` here, `postgresql` under the postgres profile —
+  # so each backend gets its own dialect-correct DDL under db/migration/{vendor}/.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/{vendor}
+    baseline-on-migrate: false
+    validate-on-migrate: true

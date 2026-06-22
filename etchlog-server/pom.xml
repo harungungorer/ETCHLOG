@@ -62,6 +62,14 @@
             <artifactId>sqlite-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Hibernate has no built-in SQLite dialect; the community module supplies it.
+             Version is governed by the Spring Boot BOM (matches hibernate-core).
+             Flyway's SQLite support is bundled in flyway-core, so no extra Flyway module is needed. -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-community-dialects</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
         <!-- API docs. -->
         <dependency>
