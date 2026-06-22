@@ -2,6 +2,12 @@ spring:
   application:
     name: etchlog
 
+  # The public API renders all cryptographic fields in snake_case (leaf_index, tree_size,
+  # root_hash, ed25519_signature, audit_path, …). byte[] fields serialize as standard Base64,
+  # which is Jackson's default — matching the documented request/response contract.
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
   # Default profile: embedded SQLite — the single-binary / demo footprint that boots with no
   # external database. Production self-hosting runs with `--spring.profiles.active=postgres`
   # (see application-postgres.yml), whose MVCC concurrency matters for the public read/proof path.
