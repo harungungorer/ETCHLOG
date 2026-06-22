@@ -95,7 +95,9 @@ class PostgresPersistenceIT {
                         () ->
                                 em.createNativeQuery(
                                                 "INSERT INTO leaves (leaf_index, leaf_hash, payload_size, created_at)"
-                                                        + " VALUES (0, :h, 0, now())")
+                                                        + " VALUES (0, :h, 0, 0)") // created_at is
+                                        // epoch-millis
+                                        // BIGINT
                                         .setParameter("h", new byte[31])
                                         .executeUpdate())
                 .isInstanceOf(Exception.class);
@@ -107,7 +109,7 @@ class PostgresPersistenceIT {
                         () ->
                                 em.createNativeQuery(
                                                 "INSERT INTO signed_tree_heads (tree_size, root_hash, timestamp,"
-                                                        + " ed25519_signature, created_at) VALUES (0, :r, now(), :s, now())")
+                                                        + " ed25519_signature, created_at) VALUES (0, :r, 0, :s, 0)")
                                         .setParameter("r", hash(1))
                                         .setParameter("s", new byte[63])
                                         .executeUpdate())
