@@ -17,7 +17,7 @@ import net.jqwik.api.constraints.LongRange;
  * <p>A subtly-wrong proof is worse than no proof, so these invariants are first-class deliverables
  * — any change to proof/hashing code that breaks them must fail CI.
  */
-class ProofInvariants {
+class ProofInvariantsPropertyTest {
 
     /** INVARIANT 1: for any log of size N and any i &lt; N, the inclusion proof verifies. */
     @Property(tries = 1000)

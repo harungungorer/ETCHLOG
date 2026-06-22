@@ -39,9 +39,10 @@ public final class CachedMerkleTree {
         levels.add(level0);
 
         if (level0.isEmpty()) {
-            // Empty tree: head is SHA-256(""), kept as a degenerate top level.
+            // Empty tree: RFC 6962 head is SHA-256("") (no leaf prefix), kept as a degenerate top
+            // level so root() has a single value to return.
             List<byte[]> top = new ArrayList<>(1);
-            top.add(MerkleHash.hashLeaf(new byte[0]));
+            top.add(MerkleHash.emptyTreeHash());
             levels.add(top);
             return new CachedMerkleTree(levels);
         }

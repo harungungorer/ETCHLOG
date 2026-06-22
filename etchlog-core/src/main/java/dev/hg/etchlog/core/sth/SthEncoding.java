@@ -16,6 +16,17 @@ import java.nio.ByteBuffer;
  * <p>The signature covers this fixed, unambiguous layout — never the JSON rendering, whose
  * whitespace and key ordering are not canonical and would make signatures non-reproducible across
  * languages (including the TypeScript browser verifier).
+ *
+ * <p><strong>Not the RFC 6962 §3.5 {@code TreeHeadSignature} wire format.</strong> This is
+ * Etchlog's own canonical STH encoding, deliberately distinct from Certificate Transparency's
+ * on-the-wire layout: CT prepends a {@code signature_type} byte and orders the fields {@code
+ * timestamp} then {@code tree_size}, whereas Etchlog uses a single structure/version tag and orders
+ * {@code tree_size} then {@code timestamp}. Full CT submission/wire compatibility is an explicit
+ * non-goal (see {@code docs/reference/ROADMAP.md} and {@code docs/operations/MAINTENANCE.md});
+ * Etchlog implements the RFC 6962 Merkle algorithms, not the CT serialization. The encoding is
+ * self-consistent (the signer and every Etchlog verifier — server, CLI, browser — use exactly these
+ * bytes) and fully fixed-width, so it carries no canonicalization ambiguity. Do not assume STHs
+ * verify under stock CT tooling.
  */
 public final class SthEncoding {
 

@@ -33,7 +33,7 @@ public final class MerkleTreeHash {
     private static byte[] mth(List<byte[]> leaves, int lo, int hi) {
         int n = hi - lo;
         if (n == 0) {
-            return MerkleHash.hashLeaf(new byte[0]); // empty tree: rarely used post-genesis
+            return MerkleHash.emptyTreeHash(); // RFC 6962: MTH({}) = SHA-256("")
         }
         if (n == 1) {
             return leaves.get(lo); // already a leaf hash

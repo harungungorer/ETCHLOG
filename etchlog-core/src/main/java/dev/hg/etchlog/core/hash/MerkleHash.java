@@ -36,6 +36,18 @@ public final class MerkleHash {
         return md.digest();
     }
 
+    /**
+     * RFC 6962 §2.1 empty-tree head: {@code MTH({}) = SHA-256("")} — the hash of the empty input
+     * with <em>no</em> domain-separation prefix.
+     *
+     * <p>This is deliberately <strong>not</strong> {@link #hashLeaf(byte[]) hashLeaf(new byte[0])}:
+     * the empty tree has no leaf, so the {@code 0x00} leaf prefix must not be applied. The value is
+     * {@code e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}.
+     */
+    public static byte[] emptyTreeHash() {
+        return sha256().digest(); // SHA-256 of zero bytes, no prefix
+    }
+
     /** Interior node hash: {@code SHA-256(0x01 || left || right)}. */
     public static byte[] hashChildren(byte[] left, byte[] right) {
         if (left == null || right == null) {

@@ -17,6 +17,19 @@ class MerkleHashTest {
                 .isEqualTo("6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d");
     }
 
+    /**
+     * RFC 6962 §2.1 known vector: the empty-tree head MTH({}) = SHA-256("") — the empty string with
+     * NO leaf prefix. Must differ from the leaf hash of empty data (which carries the 0x00 prefix).
+     */
+    @Test
+    void emptyTreeHashMatchesRfc6962Vector() {
+        assertThat(HEX.formatHex(MerkleHash.emptyTreeHash()))
+                .isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assertThat(MerkleHash.emptyTreeHash())
+                .as("empty-tree hash must NOT carry the 0x00 leaf prefix")
+                .isNotEqualTo(MerkleHash.hashLeaf(new byte[0]));
+    }
+
     /** Domain separation: a leaf and a node over the same bytes must differ. */
     @Test
     void leafAndNodePrefixesProduceDifferentHashes() {
