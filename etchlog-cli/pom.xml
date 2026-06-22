@@ -24,6 +24,16 @@
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
         </dependency>
+        <!--
+          JSON parsing only: proofs/STH are read from files the operator saved from the REST API
+          (or piped in). The CLI never trusts the server — it re-verifies everything against the
+          log's Ed25519 public key using etchlog-core. Jackson decodes the transport, it does not
+          confer trust.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
 
         <!-- Test. -->
         <dependency>
@@ -37,4 +47,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <finalName>etchlog</finalName>
+        <plugins>
+            <!-- Make the jar self-launching so `java -jar etchlog.jar verify ...` works. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>dev.hg.etchlog.cli.EtchlogCli</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
