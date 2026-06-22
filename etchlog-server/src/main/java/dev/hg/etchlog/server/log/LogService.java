@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -66,6 +67,26 @@ public class LogService {
         this.signer = signer;
         this.clock = clock;
         this.tx = new TransactionTemplate(txManager);
+    }
+
+    /**
+     * Looks up a leaf by its zero-based index.
+     *
+     * @param index the leaf index to retrieve
+     * @return the matching {@link LeafEntity}, or {@link Optional#empty()} if absent
+     */
+    public Optional<LeafEntity> findEntry(long index) {
+        return leaves.findById(index);
+    }
+
+    /**
+     * Looks up a leaf by its RFC 6962 leaf hash.
+     *
+     * @param leafHash the 32-byte leaf hash to look up
+     * @return the matching {@link LeafEntity}, or {@link Optional#empty()} if absent
+     */
+    public Optional<LeafEntity> findEntryByHash(byte[] leafHash) {
+        return leaves.findByLeafHash(leafHash);
     }
 
     /**

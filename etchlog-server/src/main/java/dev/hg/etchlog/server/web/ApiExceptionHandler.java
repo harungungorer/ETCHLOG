@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Translates failures into the API's standard JSON {@code application/problem+json} shape (RFC 9457
@@ -66,6 +67,32 @@ public class ApiExceptionHandler {
                 "duplicate-leaf",
                 "Duplicate Leaf",
                 "This record is already present in the log.",
+                request);
+    }
+
+    /**
+     * A leaf requested by index or hash was not found in the log.
+     *
+     * @see LeafNotFoundException
+     */
+    @ExceptionHandler(LeafNotFoundException.class)
+    public ProblemDetail handleLeafNotFound(LeafNotFoundException ex, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND, "leaf-not-found", "Leaf Not Found", ex.getMessage(), request);
+    }
+
+    /**
+     * A path variable could not be converted to its declared type — e.g. a non-numeric {@code
+     * {index}} in {@code /entries/{index}} yields a 400 rather than a 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "bad-request",
+                "Bad Request",
+                "Path variable '" + ex.getName() + "' has an invalid value: " + ex.getValue(),
                 request);
     }
 

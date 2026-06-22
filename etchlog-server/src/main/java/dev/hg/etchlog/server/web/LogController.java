@@ -2,14 +2,20 @@ package dev.hg.etchlog.server.web;
 
 import dev.hg.etchlog.server.log.AppendResult;
 import dev.hg.etchlog.server.log.LogService;
+import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.web.dto.AppendRequest;
 import dev.hg.etchlog.server.web.dto.AppendResponse;
+import dev.hg.etchlog.server.web.dto.EntryResponse;
 import jakarta.validation.Valid;
+import java.util.Base64;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,5 +51,52 @@ public class LogController {
     public AppendResponse append(@Valid @RequestBody AppendRequest request) {
         AppendResult result = logService.append(request.leafData());
         return AppendResponse.from(result);
+    }
+
+    /**
+     * Fetches the stored leaf at the given zero-based index. Public — no authentication required.
+     *
+     * @param index the leaf index ({@code 0 ≤ index < tree_size})
+     * @return {@code 200 OK} with {@code leaf_index}, {@code leaf_data} (standard Base64), and
+     *     {@code leaf_hash} (standard Base64)
+     * @throws LeafNotFoundException mapped to {@code 404} when no leaf exists at that index
+     */
+    @GetMapping(path = "/entries/{index}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public EntryResponse getEntryByIndex(@PathVariable("index") long index) {
+        LeafEntity leaf =
+                logService
+                        .findEntry(index)
+                        .orElseThrow(
+                                () ->
+                                        new LeafNotFoundException(
+                                                "No leaf exists at index " + index));
+        return EntryResponse.from(leaf);
+    }
+
+    /**
+     * Looks up a leaf by its RFC 6962 leaf hash supplied as a Base64URL query parameter. Public —
+     * no authentication required.
+     *
+     * <p>The {@code hash} query parameter must be Base64URL-encoded (RFC 4648 §5, {@code -}/{@code
+     * _}, no padding). Standard Base64 ({@code +}/{@code /}) without percent-encoding will be
+     * misparsed and may yield a {@code 400} or {@code 404}.
+     *
+     * @param hash the leaf hash in Base64URL encoding (no padding)
+     * @return {@code 200 OK} with the same shape as {@link #getEntryByIndex}
+     * @throws LeafNotFoundException mapped to {@code 404} when no leaf with that hash is found
+     * @throws IllegalArgumentException mapped to {@code 400} by {@link ApiExceptionHandler} when
+     *     {@code hash} is not valid Base64URL
+     */
+    @GetMapping(path = "/entries", produces = MediaType.APPLICATION_JSON_VALUE)
+    public EntryResponse getEntryByHash(@RequestParam("hash") String hash) {
+        byte[] leafHash = Base64.getUrlDecoder().decode(hash);
+        LeafEntity leaf =
+                logService
+                        .findEntryByHash(leafHash)
+                        .orElseThrow(
+                                () ->
+                                        new LeafNotFoundException(
+                                                "No leaf with the given hash exists in the log"));
+        return EntryResponse.from(leaf);
     }
 }
