@@ -14,6 +14,19 @@
     <name>Etchlog :: Spring Boot Starter</name>
     <description>Auto-configuration exposing an injectable EtchlogClient bean so any Spring app appends via a single dependency. Depends on etchlog-core, not the server.</description>
 
+    <!--
+      Apache-2.0 (resolved 2026-06-23): the starter is a thin, embeddable REST client; a permissive
+      license maximizes adoption. The server and the rest of the project tree remain AGPL-3.0.
+      See docs/reference/ROADMAP.md and docs/security/OPERATOR_AND_LICENSE_NOTES.md.
+    -->
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <dependencies>
         <!-- Client-side verification reuses the same crypto core. -->
         <dependency>
@@ -33,6 +46,12 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
+        </dependency>
+
+        <!-- Jackson databind: required for snake_case ObjectMapper and MappingJackson2HttpMessageConverter. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <!-- @ConfigurationProperties metadata generation. -->
