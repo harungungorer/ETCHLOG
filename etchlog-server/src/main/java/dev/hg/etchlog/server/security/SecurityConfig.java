@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -41,6 +42,7 @@ public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(
             HttpSecurity http, ApiKeyProperties props, ObjectMapper json) throws Exception {
         Set<String> hashes = props.resolvedKeyHashes();
