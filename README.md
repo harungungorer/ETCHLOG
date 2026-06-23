@@ -102,7 +102,7 @@ The signature demo makes the value visceral in a ~10-second GIF:
 3. Press the **"Tamper"** button, which mutates a stored leaf **directly in the database**.
 4. The next consistency check **fails** and the dashboard **lights up red**.
 
-> 📷 _Placeholder:_ `assets/tamper-demo.gif` — append → grow → verify (green) → tamper → verify (red).
+![Tamper demo: append → grow → verify (green) → tamper → verify (red)](assets/tamper-demo.gif)
 
 This is the whole thesis in 10 seconds: the operator changed the database, and the math caught it.
 
