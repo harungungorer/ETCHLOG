@@ -45,6 +45,14 @@ class DemoTamperWebTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired org.springframework.context.ApplicationContext ctx;
+
+    @Test
+    void demoProfileWarningBeanIsRegistered() {
+        // The loud startup-warning guard must be wired whenever the demo profile is active.
+        org.assertj.core.api.Assertions.assertThat(ctx.getBeansOfType(DemoProfileWarning.class))
+                .hasSize(1);
+    }
 
     private static String body(String text) {
         return "{\"leaf_data\":\"" + Base64.getEncoder().encodeToString(text.getBytes()) + "\"}";

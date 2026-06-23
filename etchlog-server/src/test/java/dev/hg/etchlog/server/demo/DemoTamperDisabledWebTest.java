@@ -14,8 +14,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Without the {@code demo} profile, the tamper endpoint must NOT be reachable: the {@code
- * @Profile("demo")} controller bean is absent and the fail-closed main security chain {@code
+ * Without the {@code demo} profile, the tamper endpoint must NOT be reachable: the
+ * {@code @Profile("demo")} controller bean is absent and the fail-closed main security chain {@code
  * denyAll}s the path. This guards against ever exposing the destructive demo endpoint in
  * production.
  */
@@ -33,11 +33,18 @@ class DemoTamperDisabledWebTest {
     }
 
     @Autowired MockMvc mvc;
+    @Autowired org.springframework.context.ApplicationContext ctx;
 
     @Test
     void tamperIsBlockedWhenDemoProfileInactive() throws Exception {
         // denyAll (anonymous) renders as a 4xx client error — never reaching a controller.
-        mvc.perform(post("/api/v1/_demo/tamper/{index}", 0))
-                .andExpect(status().is4xxClientError());
+        mvc.perform(post("/api/v1/_demo/tamper/{index}", 0)).andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void demoProfileWarningBeanIsAbsentWithoutDemoProfile() {
+        // The demo-only warning guard must not exist outside the demo profile.
+        org.assertj.core.api.Assertions.assertThat(ctx.getBeansOfType(DemoProfileWarning.class))
+                .isEmpty();
     }
 }
