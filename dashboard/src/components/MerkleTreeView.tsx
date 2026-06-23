@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { TreeNode } from '../verifier/merkle';
 
 export interface MerkleTreeViewProps {
@@ -148,6 +149,10 @@ export function MerkleTreeView({
   selectedLeaf,
   onSelectLeaf,
 }: MerkleTreeViewProps): JSX.Element {
+  // Tracks the keyboard-focused leaf so we can draw a visible focus ring (SVG outline rendering is
+  // inconsistent across browsers). Declared before any early return to satisfy the rules of hooks.
+  const [focusedLeaf, setFocusedLeaf] = useState<number | null>(null);
+
   if (root === null) {
     return (
       <div className="flex items-center justify-center rounded border border-gray-800 bg-gray-900 p-8">
@@ -218,6 +223,7 @@ export function MerkleTreeView({
           const isOnPath = highlightPath?.has(node.hashHex) ?? false;
 
           if (node.isLeaf) {
+            const isFocused = node.leafIndex === focusedLeaf;
             return (
               <g
                 key={node.hashHex}
@@ -227,8 +233,22 @@ export function MerkleTreeView({
                 aria-pressed={isSelected}
                 onClick={() => onSelectLeaf?.(node.leafIndex)}
                 onKeyDown={(e) => handleKeyDown(e, node.leafIndex)}
+                onFocus={() => setFocusedLeaf(node.leafIndex)}
+                onBlur={() => setFocusedLeaf(null)}
                 style={{ cursor: 'pointer', outline: 'none' }}
               >
+                {/* Visible keyboard focus indicator (solid sky ring), drawn beneath the node. */}
+                {isFocused && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={NODE_RADIUS + 5}
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth={2.5}
+                    data-focus-ring="true"
+                  />
+                )}
                 <circle
                   cx={x}
                   cy={y}
@@ -238,7 +258,7 @@ export function MerkleTreeView({
                   strokeWidth={style.strokeWidth}
                   data-on-path={isOnPath ? 'true' : undefined}
                 />
-                {/* Visible focus ring via extra circle (keyboard-only via :focus-visible approach) */}
+                {/* Selection ring (emerald dashed) — distinct from the focus ring. */}
                 {isSelected && (
                   <circle
                     cx={x}

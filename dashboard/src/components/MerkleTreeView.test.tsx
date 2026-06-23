@@ -152,5 +152,16 @@ describe('MerkleTreeView', () => {
       const buttons = screen.getAllByRole('button');
       expect(buttons.length).toBe(2);
     });
+
+    // Accessibility: focusing a leaf shows a visible focus ring (keyboard users can see focus).
+    it('renders a visible focus ring when a leaf is focused', () => {
+      const { container } = render(<MerkleTreeView root={twoLeafRoot} treeSize={2} />);
+      expect(container.querySelector('circle[data-focus-ring="true"]')).toBeNull();
+      const [leaf0Button] = screen.getAllByRole('button');
+      fireEvent.focus(leaf0Button);
+      expect(container.querySelector('circle[data-focus-ring="true"]')).toBeTruthy();
+      fireEvent.blur(leaf0Button);
+      expect(container.querySelector('circle[data-focus-ring="true"]')).toBeNull();
+    });
   });
 });
