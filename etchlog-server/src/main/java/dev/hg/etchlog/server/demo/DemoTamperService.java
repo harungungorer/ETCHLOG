@@ -16,8 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>This service deliberately bypasses every append-only safeguard the application enforces: the
  * {@code leaves}/{@code tree_nodes} entities are immutable ({@code @Column(updatable=false)}) and
- * {@link LeafRepository} exposes no update path, so the only way to mutate a committed leaf is to go
- * <em>around</em> the ORM with native SQL — precisely what an operator with raw DB access would do.
+ * {@link LeafRepository} exposes no update path, so the only way to mutate a committed leaf is to
+ * go <em>around</em> the ORM with native SQL — precisely what an operator with raw DB access would
+ * do.
  *
  * <p>It rewrites two rows and leaves the signed tree heads untouched:
  *
@@ -27,8 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       that inclusion/consistency proof generation reads.
  * </ol>
  *
- * <p>Because the {@code signed_tree_heads} rows are NOT re-signed, the published STH still carries a
- * <em>valid Ed25519 signature</em> over the original root. A verifier therefore sees a perfectly
+ * <p>Because the {@code signed_tree_heads} rows are NOT re-signed, the published STH still carries
+ * a <em>valid Ed25519 signature</em> over the original root. A verifier therefore sees a perfectly
  * signed head whose committed data no longer matches the store: the browser recomputes the leaf
  * hash from the bytes it is handed and the root no longer reconstructs (inclusion fails), and a
  * consistency proof re-derived from the tampered level-0 node can no longer reproduce the
@@ -53,8 +54,8 @@ public class DemoTamperService {
     }
 
     /**
-     * Mutates the leaf at {@code index} in place. Returns the new (tampered) payload and leaf hash so
-     * the caller can show what the operator changed it to.
+     * Mutates the leaf at {@code index} in place. Returns the new (tampered) payload and leaf hash
+     * so the caller can show what the operator changed it to.
      *
      * @throws DemoLeafNotFoundException if no leaf exists at {@code index}
      */
@@ -69,9 +70,7 @@ public class DemoTamperService {
 
         byte[] original = leaf.getPayload();
         String base =
-                original != null
-                        ? new String(original, StandardCharsets.UTF_8)
-                        : "leaf-" + index;
+                original != null ? new String(original, StandardCharsets.UTF_8) : "leaf-" + index;
         byte[] tamperedPayload = (base + TAMPER_MARKER).getBytes(StandardCharsets.UTF_8);
         byte[] tamperedHash = MerkleHash.hashLeaf(tamperedPayload);
 

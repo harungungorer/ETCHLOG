@@ -75,7 +75,8 @@ class DemoTamperServiceTest {
     @DynamicPropertySource
     static void sqliteDatasource(DynamicPropertyRegistry registry) {
         registry.add(
-                "spring.datasource.url", () -> "jdbc:sqlite:" + tempDir.resolve("etchlog-tamper.db"));
+                "spring.datasource.url",
+                () -> "jdbc:sqlite:" + tempDir.resolve("etchlog-tamper.db"));
     }
 
     @Autowired LogService log;
@@ -109,7 +110,10 @@ class DemoTamperServiceTest {
                 .isTrue();
         assertThat(
                         ConsistencyVerifier.verify(
-                                3, 7, pinned.rootHash(), current.rootHash(),
+                                3,
+                                7,
+                                pinned.rootHash(),
+                                current.rootHash(),
                                 log.consistencyProofNodes(3, 7)))
                 .isTrue();
 
@@ -139,7 +143,10 @@ class DemoTamperServiceTest {
         // the previously-signed roots — consistency is REJECTED (the tamper alarm).
         assertThat(
                         ConsistencyVerifier.verify(
-                                3, 7, pinned.rootHash(), current.rootHash(),
+                                3,
+                                7,
+                                pinned.rootHash(),
+                                current.rootHash(),
                                 log.consistencyProofNodes(3, 7)))
                 .isFalse();
     }
@@ -148,7 +155,6 @@ class DemoTamperServiceTest {
     void tamperingAMissingLeafIsRejected() {
         log.append("only".getBytes());
         em.clear();
-        assertThatThrownBy(() -> tamper.tamper(999))
-                .isInstanceOf(DemoLeafNotFoundException.class);
+        assertThatThrownBy(() -> tamper.tamper(999)).isInstanceOf(DemoLeafNotFoundException.class);
     }
 }
