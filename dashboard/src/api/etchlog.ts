@@ -8,7 +8,7 @@
  * `Uint8Array` at the boundary so callers and the verifier work in bytes.
  */
 
-import { base64ToBytes, bytesToBase64Url } from '../verifier/encoding';
+import { base64ToBytes, bytesToBase64, bytesToBase64Url } from '../verifier/encoding';
 import type { Sth } from '../verifier/sth';
 
 /** Base API URL: `${VITE_ETCHLOG_BASE_URL}/api/v1`, falling back to a same-origin relative path. */
@@ -33,6 +33,13 @@ export interface ConsistencyProofResult {
   first: number;
   second: number;
   proof: Uint8Array[];
+}
+
+/** Result of the demo tamper call: the leaf and its new (mutated) bytes. */
+export interface TamperResult {
+  leafIndex: number;
+  tamperedLeafData: Uint8Array;
+  tamperedLeafHash: Uint8Array;
 }
 
 /** Result of an append: the assigned index and the resulting STH. */
@@ -138,4 +145,38 @@ export async function getConsistencyProof(
     proof: string[];
   };
   return { first: w.first, second: w.second, proof: w.proof.map(base64ToBytes) };
+}
+
+/**
+ * `POST /log/entries` — append a record. Requires the appender `X-Api-Key`.
+ *
+ * In production an app appends server-side via the Spring starter; the dashboard only does this for
+ * the local demo, where the (public, well-known) demo key is acceptable. No key is persisted in the
+ * browser beyond this call's configured value.
+ */
+export async function appendEntry(leafData: Uint8Array, apiKey: string): Promise<AppendResult> {
+  const body = (await request('/log/entries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+    body: JSON.stringify({ leaf_data: bytesToBase64(leafData) }),
+  })) as { leaf_index: number; sth: SthWire };
+  return { leafIndex: body.leaf_index, sth: decodeSth(body.sth) };
+}
+
+/**
+ * `POST /_demo/tamper/{index}` — DEMO ONLY. Asks the server (running with the `demo` profile) to
+ * rewrite a stored leaf in its database, simulating a malicious operator. Re-verifying the entry
+ * afterwards detects the tampering. Not part of the production API.
+ */
+export async function tamperLeaf(index: number): Promise<TamperResult> {
+  const body = (await request(`/_demo/tamper/${index}`, { method: 'POST' })) as {
+    leaf_index: number;
+    tampered_leaf_data: string;
+    tampered_leaf_hash: string;
+  };
+  return {
+    leafIndex: body.leaf_index,
+    tamperedLeafData: base64ToBytes(body.tampered_leaf_data),
+    tamperedLeafHash: base64ToBytes(body.tampered_leaf_hash),
+  };
 }
