@@ -105,6 +105,22 @@ class SthSigningTest {
     }
 
     @Test
+    void sthRejectsSignatureOfWrongLength() {
+        byte[] root = CryptoTestSupport.randomLeafHashes(1, 7L).get(0);
+        // Ed25519 signatures are always 64 bytes; anything else (including a 0-byte placeholder
+        // or a truncated wire response) can never verify and must be rejected at construction.
+        assertThatThrownBy(() -> new SignedTreeHead(1, root, 0, new byte[0]))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("64");
+        assertThatThrownBy(() -> new SignedTreeHead(1, root, 0, new byte[63]))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new SignedTreeHead(1, root, 0, new byte[65]))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new SignedTreeHead(1, root, 0, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void sthDefensivelyCopiesMutableFields() {
         byte[] root = CryptoTestSupport.randomLeafHashes(1, 6L).get(0);
         byte[] sig = new byte[64];

@@ -24,6 +24,14 @@ import org.springframework.web.client.RestClient;
 
 class EtchlogAutoConfigurationTest {
 
+    /**
+     * 64 zero bytes in standard Base64 — a stand-in STH signature of the correct Ed25519 length.
+     * {@link SignedTreeHead} enforces the 64-byte length, so wire-deserialization tests must supply
+     * a real-length signature even though these tests only exercise the JSON/Base64 plumbing.
+     */
+    private static final String SIG_64_B64 =
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
     private final ApplicationContextRunner contextRunner =
             new ApplicationContextRunner()
                     .withConfiguration(AutoConfigurations.of(EtchlogAutoConfiguration.class));
@@ -115,8 +123,8 @@ class EtchlogAutoConfigurationTest {
     void appendRoundTripDeserializesSnakeCaseAndBase64() {
         // 32 zero bytes in standard Base64.
         final String rootHashB64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-        // A short signature in standard Base64 (arbitrary 4 bytes).
-        final String sigB64 = "AQIDBA==";
+        // 64 zero bytes — a valid Ed25519 signature length (SignedTreeHead enforces it).
+        final String sigB64 = SIG_64_B64;
 
         String responseJson =
                 """
@@ -278,7 +286,7 @@ class EtchlogAutoConfigurationTest {
     @Test
     void signedTreeHeadDeserializesToCoreType() {
         final String rootHashB64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-        final String sigB64 = "AQIDBA==";
+        final String sigB64 = SIG_64_B64;
         String json =
                 """
                 {"tree_size":5,"root_hash":"%s","timestamp":999,"ed25519_signature":"%s"}"""
@@ -300,7 +308,7 @@ class EtchlogAutoConfigurationTest {
         assertThat(sth.treeSize()).isEqualTo(5L);
         assertThat(sth.rootHash()).hasSize(32);
         assertThat(sth.timestamp()).isEqualTo(999L);
-        assertThat(sth.signature()).hasSize(4);
+        assertThat(sth.signature()).hasSize(64);
 
         mockServer.verify();
     }

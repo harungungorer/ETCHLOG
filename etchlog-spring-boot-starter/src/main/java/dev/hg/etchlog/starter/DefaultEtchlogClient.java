@@ -112,10 +112,15 @@ public class DefaultEtchlogClient implements EtchlogClient {
                     lastException);
             /*
              * Sentinel result: leafIndex -1 signals a swallowed failure.
-             * Core's SignedTreeHead requires a non-null 32-byte rootHash and non-null signature;
-             * we satisfy both with zero-filled arrays.
+             * Core's SignedTreeHead requires a 32-byte rootHash and a 64-byte (Ed25519-length)
+             * signature; we satisfy both with zero-filled arrays. The all-zero signature is a
+             * valid length but verifies against no key, so a caller that mistakes the sentinel for
+             * a real STH still fails closed at verification rather than trusting it.
              */
-            return new AppendResult(-1L, new SignedTreeHead(0L, new byte[32], 0L, new byte[0]));
+            return new AppendResult(
+                    -1L,
+                    new SignedTreeHead(
+                            0L, new byte[32], 0L, new byte[SignedTreeHead.SIGNATURE_LENGTH]));
         }
 
         throw new EtchlogAppendException(

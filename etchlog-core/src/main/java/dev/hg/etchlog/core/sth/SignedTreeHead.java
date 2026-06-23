@@ -12,9 +12,18 @@ import dev.hg.etchlog.core.hash.MerkleHash;
  *     0..N-1}
  * @param rootHash 32-byte RFC 6962 tree head over those leaves
  * @param timestamp epoch-millisecond instant the STH was issued
- * @param signature Ed25519 signature over {@link SthEncoding#bytesToSign}
+ * @param signature fixed-length {@value #SIGNATURE_LENGTH}-byte Ed25519 signature over {@link
+ *     SthEncoding#bytesToSign}
  */
 public record SignedTreeHead(long treeSize, byte[] rootHash, long timestamp, byte[] signature) {
+
+    /**
+     * Byte length of an Ed25519 signature — the only signature scheme Etchlog uses for STHs. The
+     * compact constructor enforces it so a malformed or truncated signature (e.g. a wire response
+     * that was cut short, or a zero-length placeholder) is rejected at construction rather than
+     * silently producing an STH that can never verify.
+     */
+    public static final int SIGNATURE_LENGTH = 64;
 
     public SignedTreeHead {
         if (treeSize < 0) {
@@ -24,8 +33,9 @@ public record SignedTreeHead(long treeSize, byte[] rootHash, long timestamp, byt
             throw new IllegalArgumentException(
                     "rootHash must be " + MerkleHash.HASH_LENGTH + " bytes");
         }
-        if (signature == null) {
-            throw new IllegalArgumentException("signature must not be null");
+        if (signature == null || signature.length != SIGNATURE_LENGTH) {
+            throw new IllegalArgumentException(
+                    "signature must be " + SIGNATURE_LENGTH + " bytes (Ed25519)");
         }
         rootHash = rootHash.clone();
         signature = signature.clone();
