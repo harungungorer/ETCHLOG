@@ -10,8 +10,10 @@ import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.server.log.AppendResult;
 import dev.hg.etchlog.server.log.LogService;
+import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -67,6 +69,11 @@ class DemoTamperServiceTest {
         @Bean
         Clock clock() {
             return Clock.systemUTC();
+        }
+
+        @Bean
+        EtchlogMetrics etchlogMetrics() {
+            return new EtchlogMetrics(new SimpleMeterRegistry());
         }
     }
 

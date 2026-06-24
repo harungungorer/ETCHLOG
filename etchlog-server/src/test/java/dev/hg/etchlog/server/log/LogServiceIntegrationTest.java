@@ -7,9 +7,11 @@ import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.core.sth.SthVerifier;
 import dev.hg.etchlog.core.tree.MerkleTreeHash;
+import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -65,6 +67,11 @@ class LogServiceIntegrationTest {
         @Bean
         Clock clock() {
             return Clock.systemUTC();
+        }
+
+        @Bean
+        EtchlogMetrics etchlogMetrics() {
+            return new EtchlogMetrics(new SimpleMeterRegistry());
         }
     }
 

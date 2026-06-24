@@ -8,9 +8,11 @@ import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
 import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
+import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
+import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -54,6 +56,7 @@ public class LogService {
     private final Ed25519SthSigner signer;
     private final Clock clock;
     private final TransactionTemplate tx;
+    private final EtchlogMetrics metrics;
 
     /** Serializes appends in-process: the single-writer sequencer. */
     private final ReentrantLock appendLock = new ReentrantLock(true);
@@ -64,13 +67,30 @@ public class LogService {
             SignedTreeHeadRepository sths,
             Ed25519SthSigner signer,
             Clock clock,
-            PlatformTransactionManager txManager) {
+            PlatformTransactionManager txManager,
+            EtchlogMetrics metrics) {
         this.leaves = leaves;
         this.nodes = nodes;
         this.sths = sths;
         this.signer = signer;
         this.clock = clock;
         this.tx = new TransactionTemplate(txManager);
+        this.metrics = metrics;
+    }
+
+    /**
+     * Seeds the tree-size and tree-head-timestamp gauges from the head already in the store at
+     * startup, so a restart reports the real log size before the first append rather than 0. An
+     * empty log has produced no STH yet, so the gauges stay at their initial 0 — correct, since no
+     * head exists to publish.
+     */
+    @PostConstruct
+    void initHeadGauges() {
+        sths.findFirstByOrderByTreeSizeDesc()
+                .ifPresent(
+                        head ->
+                                metrics.recordHead(
+                                        head.getTreeSize(), head.getTimestamp().toEpochMilli()));
     }
 
     /**
@@ -127,20 +147,23 @@ public class LogService {
      * @throws ProofNotAvailableException (→ 404) if {@code treeSize} exceeds the current log size
      */
     public List<byte[]> inclusionAuditPath(long leafIndex, long treeSize) {
-        if (leafIndex < 0 || treeSize <= 0 || leafIndex >= treeSize) {
-            throw new IllegalArgumentException(
-                    "require 0 <= leaf_index < tree_size (got leaf_index="
-                            + leafIndex
-                            + ", tree_size="
-                            + treeSize
-                            + ")");
-        }
-        long size = leaves.count();
-        if (treeSize > size) {
-            throw new ProofNotAvailableException(
-                    "tree_size " + treeSize + " exceeds the current log size " + size);
-        }
-        return InclusionProof.generate(leafHashesUpTo(treeSize), leafIndex, treeSize);
+        return metrics.recordInclusionProof(
+                () -> {
+                    if (leafIndex < 0 || treeSize <= 0 || leafIndex >= treeSize) {
+                        throw new IllegalArgumentException(
+                                "require 0 <= leaf_index < tree_size (got leaf_index="
+                                        + leafIndex
+                                        + ", tree_size="
+                                        + treeSize
+                                        + ")");
+                    }
+                    long size = leaves.count();
+                    if (treeSize > size) {
+                        throw new ProofNotAvailableException(
+                                "tree_size " + treeSize + " exceeds the current log size " + size);
+                    }
+                    return InclusionProof.generate(leafHashesUpTo(treeSize), leafIndex, treeSize);
+                });
     }
 
     /**
@@ -153,23 +176,26 @@ public class LogService {
      * @throws ProofNotAvailableException (→ 404) if {@code second} exceeds the current log size
      */
     public List<byte[]> consistencyProofNodes(long first, long second) {
-        if (first < 0 || second < 0 || first > second) {
-            throw new IllegalArgumentException(
-                    "require 0 <= first <= second (got first="
-                            + first
-                            + ", second="
-                            + second
-                            + ")");
-        }
-        long size = leaves.count();
-        if (second > size) {
-            throw new ProofNotAvailableException(
-                    "second " + second + " exceeds the current log size " + size);
-        }
-        if (first == 0 || first == second) {
-            return List.of();
-        }
-        return ConsistencyProof.generate(leafHashesUpTo(second), first, second);
+        return metrics.recordConsistencyProof(
+                () -> {
+                    if (first < 0 || second < 0 || first > second) {
+                        throw new IllegalArgumentException(
+                                "require 0 <= first <= second (got first="
+                                        + first
+                                        + ", second="
+                                        + second
+                                        + ")");
+                    }
+                    long size = leaves.count();
+                    if (second > size) {
+                        throw new ProofNotAvailableException(
+                                "second " + second + " exceeds the current log size " + size);
+                    }
+                    if (first == 0 || first == second) {
+                        return List.of();
+                    }
+                    return ConsistencyProof.generate(leafHashesUpTo(second), first, second);
+                });
     }
 
     /**
@@ -212,14 +238,28 @@ public class LogService {
     }
 
     private AppendResult appendInternal(byte[] leafHash, byte[] payloadOrNull) {
-        appendLock.lock();
-        try {
-            // The transaction commits before the lock is released, so a concurrent appender always
-            // sees the just-committed leaf when it computes the next index.
-            return tx.execute(status -> doAppend(leafHash, payloadOrNull));
-        } finally {
-            appendLock.unlock();
-        }
+        // Time the full critical section — lock wait, sequencing, and STH persist — and record the
+        // append outcome. The metric wrapper only observes; it neither swallows exceptions nor alters
+        // the lock/transaction ordering below.
+        return metrics.recordAppend(
+                () -> {
+                    appendLock.lock();
+                    try {
+                        // The transaction commits before the lock is released, so a concurrent
+                        // appender always sees the just-committed leaf when it computes the next
+                        // index.
+                        AppendResult result =
+                                tx.execute(status -> doAppend(leafHash, payloadOrNull));
+                        // Publish the committed head to the gauges only after tx.execute returns
+                        // (i.e. the transaction committed). A commit-time failure throws here
+                        // instead, so the monotonic tree-size gauge never advances for an append
+                        // that did not persist.
+                        metrics.recordHead(result.sth().treeSize(), result.sth().timestamp());
+                        return result;
+                    } finally {
+                        appendLock.unlock();
+                    }
+                });
     }
 
     private AppendResult doAppend(byte[] leafHash, byte[] payloadOrNull) {
@@ -255,9 +295,17 @@ public class LogService {
         // Fold the RFC 6962 head from the just-persisted perfect-subtree roots — O(log N) reads.
         byte[] root = rootFromPerfectSubtrees(treeSize);
 
-        // Sign → persist the new head. timestamp(ms) is signed and stored identically.
+        // Sign → persist the new head. timestamp(ms) is signed and stored identically. The signing
+        // call is timed; a signing failure is the most severe operational fault (the log cannot
+        // commit new state), so it is counted before the exception propagates and rolls the tx back.
         long timestampMs = clock.millis();
-        SignedTreeHead sth = signer.signSth(treeSize, timestampMs, root);
+        SignedTreeHead sth;
+        try {
+            sth = metrics.recordSthSign(() -> signer.signSth(treeSize, timestampMs, root));
+        } catch (RuntimeException e) {
+            metrics.recordSthSignError(e.getClass().getSimpleName());
+            throw e;
+        }
         sths.save(
                 new SignedTreeHeadEntity(
                         treeSize, root, Instant.ofEpochMilli(timestampMs), sth.signature()));

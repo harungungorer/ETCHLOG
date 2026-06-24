@@ -10,6 +10,7 @@ import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.core.sth.SthVerifier;
 import dev.hg.etchlog.core.tree.MerkleTreeHash;
+import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
 import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
@@ -17,6 +18,7 @@ import dev.hg.etchlog.server.persistence.entity.TreeNodeId;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.time.Clock;
@@ -137,7 +139,13 @@ class LogServiceAppendPropertyTest {
             FakeLeaves leaves, FakeNodes nodes, FakeSths sths, KeyPair kp) {
         Clock fixed = Clock.fixed(Instant.ofEpochMilli(1_750_000_000_000L), ZoneOffset.UTC);
         return new LogService(
-                leaves, nodes, sths, new Ed25519SthSigner(kp.getPrivate()), fixed, new NoOpTxm());
+                leaves,
+                nodes,
+                sths,
+                new Ed25519SthSigner(kp.getPrivate()),
+                fixed,
+                new NoOpTxm(),
+                new EtchlogMetrics(new SimpleMeterRegistry()));
     }
 
     // ----- in-memory fakes -------------------------------------------------------------------
