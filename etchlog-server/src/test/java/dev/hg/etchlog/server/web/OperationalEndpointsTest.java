@@ -1,5 +1,6 @@
 package dev.hg.etchlog.server.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -8,6 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -26,6 +28,10 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+// Spring Boot disables metrics export (and thus the Prometheus scrape endpoint) in tests by
+// default; this re-enables it so the scrape endpoint is registered and assertable here, matching
+// the production runtime where export is always on.
+@AutoConfigureObservability
 class OperationalEndpointsTest {
 
     @TempDir static Path tempDir;
@@ -77,5 +83,25 @@ class OperationalEndpointsTest {
     @Test
     void swaggerUiIsServed() throws Exception {
         mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+    }
+
+    /**
+     * The Prometheus scrape endpoint must be public (no API key) and must expose Etchlog's custom
+     * domain meters. The {@code etchlog_tree_size} gauge is registered at startup, so it is present
+     * in the scrape even before the first append, alongside the documented common {@code
+     * application="etchlog"} tag.
+     */
+    @Test
+    void prometheusEndpointServesEtchlogMetrics() throws Exception {
+        String body =
+                mvc.perform(get("/actuator/prometheus"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        assertThat(body).contains("etchlog_tree_size");
+        assertThat(body).contains("etchlog_append_latency_seconds");
+        assertThat(body).contains("application=\"etchlog\"");
     }
 }

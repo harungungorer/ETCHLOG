@@ -74,3 +74,12 @@ management:
       # (datasource connectivity, disk space, liveness) are disclosed only to authorized
       # principals so the public health probe never leaks internal infrastructure state.
       show-details: when-authorized
+    prometheus:
+      # The scrape endpoint is read-only telemetry; never allow writes/POSTs against it.
+      access: read_only
+  # Common tags stamped on every meter so a Prometheus scraping multiple instances into one TSDB
+  # can disambiguate series. `instance` defaults to "default" but is overridable per deployment.
+  metrics:
+    tags:
+      application: etchlog
+      instance: ${ETCHLOG_INSTANCE_ID:default}
