@@ -43,6 +43,21 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
 
+# Application (operational) log levels. These govern the SLF4J/Logback OPERATIONAL log — mutable
+# telemetry about service health — which is NOT the cryptographic transparency log. The integrity
+# guarantee comes solely from the Merkle tree and Ed25519-signed tree heads, never from these lines;
+# you could delete every line here and lose zero cryptographic guarantees. See
+# docs/operations/MONITORING_LOGGING.md. Never run dev.hg.etchlog at DEBUG/TRACE in production — the
+# crypto core at TRACE logs intermediate hash material (noisy and slows the hot path).
+logging:
+  level:
+    root: INFO
+    dev.hg.etchlog.core: INFO # crypto core: keep quiet but visible
+    dev.hg.etchlog.server: INFO
+    dev.hg.etchlog.server.security: INFO # log auth decisions at INFO
+    com.zaxxer.hikari: WARN
+    org.flywaydb: INFO # migrations are worth seeing at startup
+
 # Appender API keys (etchlog.security.api-keys) are intentionally NOT set here — committing keys is a
 # leak risk, and an empty default would only fail the server closed at startup. Configure them at
 # deploy time instead; the server hashes each RAW key once and discards the plaintext:

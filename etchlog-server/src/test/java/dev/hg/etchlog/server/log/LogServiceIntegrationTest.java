@@ -3,6 +3,8 @@ package dev.hg.etchlog.server.log;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.core.sth.SthVerifier;
@@ -114,5 +116,41 @@ class LogServiceIntegrationTest {
         logService.append("dup".getBytes());
         assertThatThrownBy(() -> logService.append("dup".getBytes()))
                 .isInstanceOf(DuplicateLeafException.class);
+    }
+
+    /**
+     * A successful append logs an INFO line carrying only the non-sensitive coordinates (leaf index,
+     * tree size, STH timestamp). It must <strong>never</strong> log the payload: the payload may be
+     * sensitive operator data, and the app log is not its system of record.
+     */
+    @Test
+    void appendLogsCoordinatesButNeverThePayload() {
+        String sensitivePayload = "super-secret-operator-data-9f3a";
+
+        ch.qos.logback.classic.Logger serviceLogger =
+                (ch.qos.logback.classic.Logger)
+                        org.slf4j.LoggerFactory.getLogger(LogService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        serviceLogger.addAppender(appender);
+        try {
+            logService.append(sensitivePayload.getBytes());
+        } finally {
+            serviceLogger.detachAppender(appender);
+        }
+
+        assertThat(appender.list)
+                .anySatisfy(
+                        event -> {
+                            assertThat(event.getFormattedMessage()).contains("append accepted");
+                            assertThat(event.getFormattedMessage()).contains("leaf_index=");
+                            assertThat(event.getFormattedMessage()).contains("tree_size=");
+                        });
+        assertThat(appender.list)
+                .as("the payload must never appear in any log line")
+                .noneSatisfy(
+                        event ->
+                                assertThat(event.getFormattedMessage())
+                                        .contains(sensitivePayload));
     }
 }

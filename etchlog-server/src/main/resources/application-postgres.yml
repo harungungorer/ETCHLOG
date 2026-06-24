@@ -14,3 +14,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Production emits structured JSON (Elastic Common Schema) on the console so logs are
+# machine-parseable by Loki/ELK/CloudWatch-style collectors. The default (SQLite/demo) profile keeps
+# the human-readable console format for local development. See docs/operations/MONITORING_LOGGING.md.
+logging:
+  structured:
+    format:
+      console: ecs

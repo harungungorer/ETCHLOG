@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -49,6 +51,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class LogService {
+
+    private static final Logger log = LoggerFactory.getLogger(LogService.class);
 
     private final LeafRepository leaves;
     private final TreeNodeRepository nodes;
@@ -255,6 +259,15 @@ public class LogService {
                         // instead, so the monotonic tree-size gauge never advances for an append
                         // that did not persist.
                         metrics.recordHead(result.sth().treeSize(), result.sth().timestamp());
+                        // Log the non-sensitive coordinates of the committed append, never the
+                        // payload: the index/size/timestamp are safe to log, but the payload may be
+                        // sensitive operator data and the app log is not its system of record (the
+                        // Merkle tree in the database is). See docs/operations/MONITORING_LOGGING.md.
+                        log.info(
+                                "append accepted leaf_index={} tree_size={} sth_timestamp={}",
+                                result.leafIndex(),
+                                result.sth().treeSize(),
+                                result.sth().timestamp());
                         return result;
                     } finally {
                         appendLock.unlock();
