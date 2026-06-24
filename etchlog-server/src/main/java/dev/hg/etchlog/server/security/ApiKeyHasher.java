@@ -22,16 +22,24 @@ public final class ApiKeyHasher {
     private ApiKeyHasher() {}
 
     /**
+     * Returns the raw 32-byte SHA-256 of the raw key. This is the on-disk form stored in {@code
+     * api_keys.key_hash} (a 32-byte {@code BYTEA}/{@code BLOB}); the hex rendering below is the
+     * in-memory comparison form.
+     */
+    public static byte[] sha256Bytes(String rawKey) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return md.digest(rawKey.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 must be available on the JDK", e);
+        }
+    }
+
+    /**
      * Returns the lowercase hex SHA-256 of the raw key. {@link HexFormat} is locale-independent by
      * construction, satisfying the project's {@code Locale.ROOT} hygiene rule.
      */
     public static String sha256Hex(String rawKey) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(rawKey.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 must be available on the JDK", e);
-        }
+        return HexFormat.of().formatHex(sha256Bytes(rawKey));
     }
 }

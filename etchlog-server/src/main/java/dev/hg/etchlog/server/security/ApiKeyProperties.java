@@ -12,10 +12,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * memory.
  *
  * <p>Accepting a <em>set</em> of keys is what makes zero-downtime rotation possible: list both the
- * old and new key during the overlap window, migrate appenders, then drop the old one. Revocation
- * is removing a key from this set and restarting.
+ * old and new key during the overlap window, migrate appenders, then drop the old one.
  *
- * @param apiKeys the raw appender keys; each is SHA-256 hashed at startup
+ * <p><strong>These configured keys are a bootstrap seed, not the runtime source of truth.</strong>
+ * At startup {@code ApiKeySeeder} inserts each one into the {@code api_keys} table (if absent), and
+ * the {@code DbApiKeyAuthenticator} authenticates every append against the <em>active</em> rows of
+ * that table. Revocation therefore happens in the database — set a row's {@code active = false} (or
+ * {@code revoked_at}) and it takes effect on the next request, no restart required. Seeding never
+ * reactivates a row that was already revoked, so a revoked key stays revoked even while it remains
+ * listed here.
+ *
+ * @param apiKeys the raw appender keys; each is SHA-256 hashed and seeded at startup
  * @see <a
  *     href="../../../../../../../../docs/features/APPENDER_AUTHORIZATION.md">APPENDER_AUTHORIZATION.md</a>
  */
@@ -37,13 +44,9 @@ public record ApiKeyProperties(List<String> apiKeys) {
      */
     public Set<String> resolvedKeyHashes() {
         Set<String> hashes =
-                apiKeys == null
-                        ? Set.of()
-                        : apiKeys.stream()
-                                .filter(k -> k != null && !k.isBlank())
-                                .map(String::trim)
-                                .map(ApiKeyHasher::sha256Hex)
-                                .collect(Collectors.toUnmodifiableSet());
+                normalizedKeys().stream()
+                        .map(ApiKeyHasher::sha256Hex)
+                        .collect(Collectors.toUnmodifiableSet());
         if (hashes.isEmpty()) {
             throw new IllegalStateException(
                     "No etchlog.security.api-keys configured — the append endpoint would be"
@@ -51,6 +54,20 @@ public record ApiKeyProperties(List<String> apiKeys) {
                             + " profile for the built-in demo key.");
         }
         return hashes;
+    }
+
+    /**
+     * The configured keys with blanks dropped and surrounding whitespace trimmed — the raw form the
+     * startup seeder hashes into {@code api_keys}. Returns an empty list (never null) when nothing
+     * is configured; the fail-closed check lives in {@link #resolvedKeyHashes()}.
+     */
+    public List<String> normalizedKeys() {
+        return apiKeys == null
+                ? List.of()
+                : apiKeys.stream()
+                        .filter(k -> k != null && !k.isBlank())
+                        .map(String::trim)
+                        .toList();
     }
 
     /**

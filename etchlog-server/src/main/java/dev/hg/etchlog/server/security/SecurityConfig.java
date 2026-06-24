@@ -44,7 +44,14 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain filterChain(
-            HttpSecurity http, ApiKeyProperties props, ObjectMapper json) throws Exception {
+            HttpSecurity http,
+            ApiKeyProperties props,
+            ApiKeyAuthenticator authenticator,
+            ObjectMapper json)
+            throws Exception {
+        // Fail-closed validation only: ensures at least one key is configured to seed (and drives
+        // the demo warning). Runtime authentication is against the api_keys table via
+        // `authenticator`.
         Set<String> hashes = props.resolvedKeyHashes();
         if (props.usesDemoKey()) {
             log.warn(
@@ -78,6 +85,7 @@ public class SecurityConfig {
                                         .permitAll()
                                         // Ops & docs.
                                         .requestMatchers(
+                                                "/actuator",
                                                 "/actuator/health",
                                                 "/actuator/health/**",
                                                 "/actuator/info",
@@ -94,7 +102,8 @@ public class SecurityConfig {
                 .exceptionHandling(
                         ex -> ex.authenticationEntryPoint(responder).accessDeniedHandler(responder))
                 .addFilterBefore(
-                        new ApiKeyAuthFilter(hashes), UsernamePasswordAuthenticationFilter.class)
+                        new ApiKeyAuthFilter(authenticator),
+                        UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable());
 

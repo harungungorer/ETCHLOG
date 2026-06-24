@@ -188,6 +188,25 @@ class SqlitePersistenceTest {
     }
 
     /**
+     * Proves the V6 ck_api_keys_hash_len CHECK survived the SQLite create-copy-drop-rename table
+     * rebuild and is enforced by the database — a wrong-length key_hash inserted via raw SQL (which
+     * bypasses the ApiKeyEntity guard) must be rejected.
+     */
+    @Test
+    void databaseRejectsWrongLengthApiKeyHash() {
+        assertThatThrownBy(
+                        () ->
+                                em.getEntityManager()
+                                        .createNativeQuery(
+                                                "INSERT INTO api_keys (id, key_hash, label) VALUES"
+                                                        + " ('00000000-0000-0000-0000-000000000001', :h,"
+                                                        + " 'bad')")
+                                        .setParameter("h", new byte[31])
+                                        .executeUpdate())
+                .isInstanceOf(Exception.class);
+    }
+
+    /**
      * Append-only guard at the app layer: the log repositories extend the bare {@code Repository}
      * marker, so no {@code delete}/{@code remove} method is ever exposed. This is the storage-layer
      * integrity property enforced in code (the DB grants are the other half).

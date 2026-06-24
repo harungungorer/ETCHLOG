@@ -59,6 +59,13 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+  info:
+    # Belt-and-suspenders: the /actuator/info endpoint is public, so never let it surface raw
+    # configuration. env exposure is off by default in Spring Boot 3, but pin it explicitly so a
+    # future `management.info.env.enabled=true` can't silently leak etchlog.* config (key file
+    # paths, etc.). git/build info remain harmless and stay enabled.
+    env:
+      enabled: false
   endpoint:
     health:
       probes:

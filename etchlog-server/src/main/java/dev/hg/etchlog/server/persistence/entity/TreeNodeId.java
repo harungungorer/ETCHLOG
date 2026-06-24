@@ -11,6 +11,8 @@ import java.util.Objects;
  */
 public class TreeNodeId implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private int level;
     private long nodeIndex;
 

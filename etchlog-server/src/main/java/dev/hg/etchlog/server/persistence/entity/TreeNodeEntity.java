@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * A materialized Merkle node addressed by {@code (level, node_index)}.
@@ -90,7 +91,9 @@ public class TreeNodeEntity {
 
     @Override
     public int hashCode() {
-        return 31 * level + Long.hashCode(nodeIndex);
+        // Kept identical to TreeNodeId.hashCode() so the entity and its @IdClass key agree when
+        // either is used as a map/set key.
+        return Objects.hash(level, nodeIndex);
     }
 
     @Override

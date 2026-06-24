@@ -160,7 +160,12 @@ public final class VerifyInclusionCommand implements Callable<Integer> {
                         proof.auditPath(),
                         expectedRoot);
 
-        String anchor = rootSignatureChecked ? "signed root" : "supplied root";
+        // Distinguish where the trusted root came from — a live --url fetch, an offline signed
+        // --sth, or a raw --root — so a script parsing the output can tell them apart.
+        String anchor =
+                !rootSignatureChecked
+                        ? "supplied root"
+                        : (url != null ? "fetched signed root" : "signed root");
         String summary =
                 "leaf "
                         + proof.leafIndex()

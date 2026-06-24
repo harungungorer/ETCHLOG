@@ -115,4 +115,18 @@ class PostgresPersistenceIT {
                                         .executeUpdate())
                 .isInstanceOf(Exception.class);
     }
+
+    @Test
+    void databaseRejectsWrongLengthApiKeyHash() {
+        // Proves the V6 ck_api_keys_hash_len CHECK is enforced by Postgres. id/active/created_at
+        // all
+        // have column defaults, so only the (wrong-length) key_hash and label need supplying.
+        assertThatThrownBy(
+                        () ->
+                                em.createNativeQuery(
+                                                "INSERT INTO api_keys (key_hash, label) VALUES (:h, 'bad')")
+                                        .setParameter("h", new byte[31])
+                                        .executeUpdate())
+                .isInstanceOf(Exception.class);
+    }
 }

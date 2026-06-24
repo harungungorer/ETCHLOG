@@ -1,10 +1,10 @@
 package dev.hg.etchlog.server.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.hg.etchlog.server.web.ProblemDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -26,8 +26,6 @@ import org.springframework.security.web.access.AccessDeniedHandler;
  * </ul>
  */
 public class SecurityProblemResponder implements AuthenticationEntryPoint, AccessDeniedHandler {
-
-    private static final String PROBLEM_BASE = "https://etchlog.dev/problems/";
 
     private final ObjectMapper json;
 
@@ -73,11 +71,7 @@ public class SecurityProblemResponder implements AuthenticationEntryPoint, Acces
             String title,
             String detail)
             throws IOException {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
-        pd.setType(URI.create(PROBLEM_BASE + typeSlug));
-        pd.setTitle(title);
-        pd.setInstance(URI.create(request.getRequestURI()));
-        pd.setProperty("timestamp", System.currentTimeMillis());
+        ProblemDetail pd = ProblemDetails.of(status, typeSlug, title, detail, request);
 
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

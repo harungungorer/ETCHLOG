@@ -2,6 +2,7 @@ package dev.hg.etchlog.server.demo;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,5 +89,18 @@ class DemoTamperWebTest {
                                 .getContentAsString());
         org.assertj.core.api.Assertions.assertThat(entry.get("leaf_hash").asText())
                 .isEqualTo(tamperedHash);
+    }
+
+    @Test
+    void tamperingAMissingLeafReturnsProblemJson404() throws Exception {
+        // DemoExceptionHandler renders the demo 404 as application/problem+json (with type and
+        // timestamp), matching the main API instead of a bare framework error body.
+        mvc.perform(post("/api/v1/_demo/tamper/{index}", 9_999))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.type").value("https://etchlog.dev/problems/leaf-not-found"))
+                .andExpect(jsonPath("$.title").value("Leaf Not Found"))
+                .andExpect(jsonPath("$.timestamp").isNumber());
     }
 }

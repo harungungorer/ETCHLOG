@@ -3,7 +3,6 @@ package dev.hg.etchlog.server.web;
 import dev.hg.etchlog.server.log.DuplicateLeafException;
 import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -33,8 +32,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
-
-    private static final String PROBLEM_BASE = "https://etchlog.dev/problems/";
 
     /** Bean-validation failure on a request body (e.g. missing/empty {@code leaf_data}). */
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -136,11 +133,6 @@ public class ApiExceptionHandler {
             String title,
             String detail,
             HttpServletRequest request) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
-        pd.setType(URI.create(PROBLEM_BASE + typeSlug));
-        pd.setTitle(title);
-        pd.setInstance(URI.create(request.getRequestURI()));
-        pd.setProperty("timestamp", System.currentTimeMillis());
-        return pd;
+        return ProblemDetails.of(status, typeSlug, title, detail, request);
     }
 }

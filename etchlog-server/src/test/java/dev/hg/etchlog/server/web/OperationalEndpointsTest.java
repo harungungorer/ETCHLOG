@@ -47,6 +47,18 @@ class OperationalEndpointsTest {
     }
 
     /**
+     * The actuator discovery (links) endpoint is explicitly public, so monitoring probes that hit
+     * {@code /actuator} get the link index rather than a confusing 403 from the fail-closed
+     * default.
+     */
+    @Test
+    void actuatorRootIsAccessible() throws Exception {
+        mvc.perform(get("/actuator").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$._links").exists());
+    }
+
+    /**
      * OpenAPI JSON descriptor must be reachable at the springdoc default path and must contain the
      * {@code openapi} version field and the configured API title.
      */
