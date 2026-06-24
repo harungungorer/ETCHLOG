@@ -51,8 +51,7 @@ class EtchlogMetricsTest {
     }
 
     private double proofCount(String proofType) {
-        return registry
-                .get("etchlog.proof.generation")
+        return registry.get("etchlog.proof.generation")
                 .tag("proof_type", proofType)
                 .timer()
                 .count();

@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
  * Spring, JPA/Jakarta persistence, the servlet/web stack, BouncyCastle, or observability libraries
  * (Micrometer / the Prometheus client). The same code has to run unchanged in the server, the CLI,
  * and as the reference for the browser verifier — any framework import here breaks that and fails
- * the build. Metrics are instrumented in {@code etchlog-server} by wrapping core calls, never inside
- * core itself (see {@code docs/operations/MONITORING_LOGGING.md}).
+ * the build. Metrics are instrumented in {@code etchlog-server} by wrapping core calls, never
+ * inside core itself (see {@code docs/operations/MONITORING_LOGGING.md}).
  */
 public class CryptoCorePurityTest {
 
@@ -71,8 +71,8 @@ public class CryptoCorePurityTest {
                         .resideInAnyPackage("io.micrometer..", "io.prometheus..")
                         .as(
                                 "etchlog-core must not depend on Micrometer / Prometheus —"
-                                    + " observability is instrumented in etchlog-server by wrapping"
-                                    + " core calls, never inside core");
+                                        + " observability is instrumented in etchlog-server by wrapping"
+                                        + " core calls, never inside core");
         rule.check(CORE);
     }
 }

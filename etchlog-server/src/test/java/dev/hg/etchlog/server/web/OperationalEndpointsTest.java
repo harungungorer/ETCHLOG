@@ -101,7 +101,8 @@ class OperationalEndpointsTest {
                         .getContentAsString();
 
         // Assert the exact documented metric names (MONITORING_LOGGING.md). The trailing `{` (the
-        // tag block) pins the full name, so a base-unit suffix regression (etchlog_tree_size_leaves)
+        // tag block) pins the full name, so a base-unit suffix regression
+        // (etchlog_tree_size_leaves)
         // would fail here rather than slip past a loose substring match — the documented alert
         // PromQL references etchlog_tree_size, so the name is a contract.
         assertThat(body).contains("etchlog_tree_size{");

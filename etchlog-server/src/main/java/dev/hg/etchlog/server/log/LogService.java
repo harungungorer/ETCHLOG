@@ -5,10 +5,10 @@ import dev.hg.etchlog.core.proof.ConsistencyProof;
 import dev.hg.etchlog.core.proof.InclusionProof;
 import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
+import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
 import dev.hg.etchlog.server.persistence.entity.TreeNodeEntity;
-import dev.hg.etchlog.server.metrics.EtchlogMetrics;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
@@ -243,7 +243,8 @@ public class LogService {
 
     private AppendResult appendInternal(byte[] leafHash, byte[] payloadOrNull) {
         // Time the full critical section — lock wait, sequencing, and STH persist — and record the
-        // append outcome. The metric wrapper only observes; it neither swallows exceptions nor alters
+        // append outcome. The metric wrapper only observes; it neither swallows exceptions nor
+        // alters
         // the lock/transaction ordering below.
         return metrics.recordAppend(
                 () -> {
@@ -262,7 +263,8 @@ public class LogService {
                         // Log the non-sensitive coordinates of the committed append, never the
                         // payload: the index/size/timestamp are safe to log, but the payload may be
                         // sensitive operator data and the app log is not its system of record (the
-                        // Merkle tree in the database is). See docs/operations/MONITORING_LOGGING.md.
+                        // Merkle tree in the database is). See
+                        // docs/operations/MONITORING_LOGGING.md.
                         log.info(
                                 "append accepted leaf_index={} tree_size={} sth_timestamp={}",
                                 result.leafIndex(),
@@ -310,7 +312,8 @@ public class LogService {
 
         // Sign → persist the new head. timestamp(ms) is signed and stored identically. The signing
         // call is timed; a signing failure is the most severe operational fault (the log cannot
-        // commit new state), so it is counted before the exception propagates and rolls the tx back.
+        // commit new state), so it is counted before the exception propagates and rolls the tx
+        // back.
         long timestampMs = clock.millis();
         SignedTreeHead sth;
         try {

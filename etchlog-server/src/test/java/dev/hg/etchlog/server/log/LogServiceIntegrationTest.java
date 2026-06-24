@@ -119,17 +119,16 @@ class LogServiceIntegrationTest {
     }
 
     /**
-     * A successful append logs an INFO line carrying only the non-sensitive coordinates (leaf index,
-     * tree size, STH timestamp). It must <strong>never</strong> log the payload: the payload may be
-     * sensitive operator data, and the app log is not its system of record.
+     * A successful append logs an INFO line carrying only the non-sensitive coordinates (leaf
+     * index, tree size, STH timestamp). It must <strong>never</strong> log the payload: the payload
+     * may be sensitive operator data, and the app log is not its system of record.
      */
     @Test
     void appendLogsCoordinatesButNeverThePayload() {
         String sensitivePayload = "super-secret-operator-data-9f3a";
 
         ch.qos.logback.classic.Logger serviceLogger =
-                (ch.qos.logback.classic.Logger)
-                        org.slf4j.LoggerFactory.getLogger(LogService.class);
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(LogService.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         serviceLogger.addAppender(appender);
@@ -150,7 +149,6 @@ class LogServiceIntegrationTest {
                 .as("the payload must never appear in any log line")
                 .noneSatisfy(
                         event ->
-                                assertThat(event.getFormattedMessage())
-                                        .contains(sensitivePayload));
+                                assertThat(event.getFormattedMessage()).contains(sensitivePayload));
     }
 }

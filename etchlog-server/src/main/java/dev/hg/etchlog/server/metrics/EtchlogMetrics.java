@@ -13,18 +13,20 @@ import org.springframework.stereotype.Component;
  * Micrometer instrumentation for the transparency log's write and read paths, exposed via the
  * Prometheus scrape endpoint (see {@code docs/operations/MONITORING_LOGGING.md}).
  *
- * <p>This is <em>operational</em> observability data — mutable telemetry about service health. It is
- * deliberately confined to {@code etchlog-server}: the crypto core ({@code etchlog-core}) carries
- * zero Micrometer/Spring dependencies (enforced by ArchUnit), so core calls are wrapped with timers
- * here rather than instrumented in place. Metrics never participate in the integrity guarantee — that
- * comes solely from the Merkle tree and Ed25519-signed tree heads, never from these counters.
+ * <p>This is <em>operational</em> observability data — mutable telemetry about service health. It
+ * is deliberately confined to {@code etchlog-server}: the crypto core ({@code etchlog-core})
+ * carries zero Micrometer/Spring dependencies (enforced by ArchUnit), so core calls are wrapped
+ * with timers here rather than instrumented in place. Metrics never participate in the integrity
+ * guarantee — that comes solely from the Merkle tree and Ed25519-signed tree heads, never from
+ * these counters.
  *
  * <p>The three headline domain metrics are <strong>append latency</strong> (write-path SLI),
  * <strong>current tree size</strong>, and <strong>proof-generation time</strong> (read-path SLI).
  * Each renders into Prometheus with dots becoming underscores and the base unit appended, e.g.
  * {@code etchlog.append.latency} → {@code etchlog_append_latency_seconds}.
  *
- * @see <a href="../../../../../../../../docs/operations/MONITORING_LOGGING.md">MONITORING_LOGGING.md</a>
+ * @see <a
+ *     href="../../../../../../../../docs/operations/MONITORING_LOGGING.md">MONITORING_LOGGING.md</a>
  */
 @Component
 public class EtchlogMetrics {
@@ -78,8 +80,10 @@ public class EtchlogMetrics {
                         .description("Ed25519 STH signing time")
                         .register(registry);
 
-        // No baseUnit here: a base unit would suffix the Prometheus name (etchlog_tree_size_leaves),
-        // breaking the documented metric name and the alert PromQL that references etchlog_tree_size.
+        // No baseUnit here: a base unit would suffix the Prometheus name
+        // (etchlog_tree_size_leaves),
+        // breaking the documented metric name and the alert PromQL that references
+        // etchlog_tree_size.
         Gauge.builder("etchlog.tree.size", treeSize, AtomicLong::doubleValue)
                 .description("Current number of leaves committed to the log (latest STH tree_size)")
                 .register(registry);
@@ -87,7 +91,8 @@ public class EtchlogMetrics {
                         "etchlog.tree.head.timestamp",
                         treeHeadTimestampSeconds,
                         AtomicLong::doubleValue)
-                .description("Timestamp of the latest STH; staleness indicates appends have stopped")
+                .description(
+                        "Timestamp of the latest STH; staleness indicates appends have stopped")
                 .baseUnit("seconds")
                 .register(registry);
     }
@@ -135,8 +140,8 @@ public class EtchlogMetrics {
     }
 
     /**
-     * Times an inclusion-proof generation and records its outcome. Exceptions (e.g. a 400/404 from a
-     * bad request) count as {@code error} and are rethrown unchanged.
+     * Times an inclusion-proof generation and records its outcome. Exceptions (e.g. a 400/404 from
+     * a bad request) count as {@code error} and are rethrown unchanged.
      */
     public <T> T recordInclusionProof(Supplier<T> proof) {
         return recordProof(inclusionProofTimer, inclusionProofSuccess, inclusionProofError, proof);
@@ -167,15 +172,16 @@ public class EtchlogMetrics {
     }
 
     /**
-     * Publishes the latest committed head to the gauges. Call after a successful append once the new
-     * STH is persisted, and once at startup to reflect the head already in the store.
+     * Publishes the latest committed head to the gauges. Call after a successful append once the
+     * new STH is persisted, and once at startup to reflect the head already in the store.
      *
      * @param size the latest STH tree size (number of committed leaves)
      * @param timestampMillis the latest STH timestamp in epoch milliseconds
      */
     public void recordHead(long size, long timestampMillis) {
         treeSize.set(size);
-        // The gauge is published in seconds (etchlog_tree_head_timestamp_seconds); the STH timestamp
+        // The gauge is published in seconds (etchlog_tree_head_timestamp_seconds); the STH
+        // timestamp
         // is signed and stored in milliseconds, so convert here at the observability boundary.
         treeHeadTimestampSeconds.set(Math.floorDiv(timestampMillis, 1000L));
     }
