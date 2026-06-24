@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Enforces the non-negotiable boundary: {@code etchlog-core} is pure Java and must never depend on
- * Spring, JPA/Jakarta persistence, the servlet/web stack, or BouncyCastle. The same code has to run
- * unchanged in the server, the CLI, and as the reference for the browser verifier — any framework
- * import here breaks that and fails the build.
+ * Spring, JPA/Jakarta persistence, the servlet/web stack, BouncyCastle, or observability libraries
+ * (Micrometer / the Prometheus client). The same code has to run unchanged in the server, the CLI,
+ * and as the reference for the browser verifier — any framework import here breaks that and fails
+ * the build. Metrics are instrumented in {@code etchlog-server} by wrapping core calls, never inside
+ * core itself (see {@code docs/operations/MONITORING_LOGGING.md}).
  */
 public class CryptoCorePurityTest {
 
@@ -57,6 +59,20 @@ public class CryptoCorePurityTest {
                         .resideInAnyPackage("org.bouncycastle..")
                         .as(
                                 "etchlog-core uses the JDK 21 built-in Ed25519 provider, not BouncyCastle");
+        rule.check(CORE);
+    }
+
+    @Test
+    void coreHasNoObservabilityDependency() {
+        ArchRule rule =
+                noClasses()
+                        .should()
+                        .dependOnClassesThat()
+                        .resideInAnyPackage("io.micrometer..", "io.prometheus..")
+                        .as(
+                                "etchlog-core must not depend on Micrometer / Prometheus —"
+                                    + " observability is instrumented in etchlog-server by wrapping"
+                                    + " core calls, never inside core");
         rule.check(CORE);
     }
 }
