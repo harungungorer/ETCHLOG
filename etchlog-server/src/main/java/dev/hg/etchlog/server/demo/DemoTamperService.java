@@ -6,7 +6,9 @@ import dev.hg.etchlog.server.persistence.repository.LeafRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,12 +47,17 @@ public class DemoTamperService {
     /** Visible marker appended to the record so the tampering is obvious in the UI. */
     static final String TAMPER_MARKER = " ⚠ TAMPERED ⚠";
 
+    /** The profile this destructive demo is gated behind; never legitimate in production. */
+    static final String DEMO_PROFILE = "demo";
+
     private final LeafRepository leaves;
+    private final Environment environment;
 
     @PersistenceContext private EntityManager em;
 
-    public DemoTamperService(LeafRepository leaves) {
+    public DemoTamperService(LeafRepository leaves, Environment environment) {
         this.leaves = leaves;
+        this.environment = environment;
     }
 
     /**
@@ -61,6 +68,7 @@ public class DemoTamperService {
      */
     @Transactional
     public TamperResult tamper(long index) {
+        assertDemoProfileActive();
         LeafEntity leaf =
                 leaves.findById(index)
                         .orElseThrow(
@@ -97,6 +105,23 @@ public class DemoTamperService {
                 .executeUpdate();
 
         return new TamperResult(index, tamperedPayload, tamperedHash);
+    }
+
+    /**
+     * Defense-in-depth: although the {@code @Profile("demo")} annotation already prevents this bean
+     * from existing outside the demo profile, re-verify at the call site that {@code demo} is in
+     * the active profiles before performing the destructive native UPDATE. If a profile
+     * misconfiguration (or a manual instantiation) ever placed this bean in a production context,
+     * refuse to mutate the log rather than corrupt a real, signed history.
+     */
+    private void assertDemoProfileActive() {
+        if (!Arrays.asList(environment.getActiveProfiles()).contains(DEMO_PROFILE)) {
+            throw new IllegalStateException(
+                    "DemoTamperService invoked without the '"
+                            + DEMO_PROFILE
+                            + "' profile active — refusing to mutate the log. The tamper demo is a"
+                            + " demo-only attack simulation and must never run in production.");
+        }
     }
 
     /** The result of a tamper operation: the leaf and its new (mutated) bytes. */

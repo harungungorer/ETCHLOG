@@ -1,8 +1,6 @@
 package dev.hg.etchlog.server.persistence.repository;
 
 import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
-import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import org.springframework.data.repository.Repository;
 
@@ -24,9 +22,6 @@ public interface SignedTreeHeadRepository extends Repository<SignedTreeHeadEntit
 
     /** get-signed-tree-head: the current head, backed by {@code idx_sth_size_desc}. */
     Optional<SignedTreeHeadEntity> findFirstByOrderByTreeSizeDesc();
-
-    /** Fetch specific historical STHs to bracket a consistency proof between observed sizes. */
-    List<SignedTreeHeadEntity> findByTreeSizeIn(Collection<Long> treeSizes);
 
     long count();
 }

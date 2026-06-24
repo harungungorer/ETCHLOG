@@ -121,7 +121,7 @@
     "treeSize": 9,
     "rootHash": "Q6QzCya6wzf53ZZqwCFYfx88W9T6s1HcMgiQmlzfUUY=",
     "timestamp": 1750000000000,
-    "signature": "dZWZ4ff4T/twkTcW9Yd9ZvzoOqpGfTbgJhmqBZIHVOLDHnhhjvdEsrlLg2vs8IPgW1bsLp8ZWrxk08HKK2+CCw==",
-    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABsDt5Gl9L8UF65KRPOEPihKMo2dbXGuaFpTzXbM+slU=\n-----END PUBLIC KEY-----\n"
+    "signature": "XV1vpSbrSCtnr+ZYDbkbOfVhHI1vaz5w6UMkFU590kSLwn+hBrjReCQz7fet0GmqmxW4ktUVHa1T/0qA8Ev9AQ==",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAV2N7gaIweebLOtSjLV+MAA6xHTn3A1cXFdbxuyu0DyU=\n-----END PUBLIC KEY-----\n"
   }
 }

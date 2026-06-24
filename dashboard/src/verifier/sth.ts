@@ -51,6 +51,8 @@ export function bytesToSign(treeSize: number, timestampMs: number, rootHash: Uin
  */
 export async function importLogPublicKey(pem: string): Promise<CryptoKey> {
   const der = pemToDer(pem);
+  // `as BufferSource` is required (not redundant): a `Uint8Array<ArrayBufferLike>` is not
+  // assignable to the DOM lib's `BufferSource` because its buffer may be a `SharedArrayBuffer`.
   return crypto.subtle.importKey('spki', der as BufferSource, { name: 'Ed25519' }, false, [
     'verify',
   ]);
@@ -64,6 +66,7 @@ export async function verifySth(publicKey: CryptoKey, sth: Sth): Promise<boolean
   if (sth.rootHash.length !== HASH_LENGTH) return false;
   const message = bytesToSign(sth.treeSize, sth.timestamp, sth.rootHash);
   try {
+    // `as BufferSource` casts are required for the same reason as in `importLogPublicKey`.
     return await crypto.subtle.verify(
       { name: 'Ed25519' },
       publicKey,

@@ -26,6 +26,9 @@ const NODE_PREFIX = 0x01;
 export const HASH_LENGTH = 32;
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
+  // `as BufferSource` is required, not redundant: TS's DOM lib types `BufferSource` as
+  // `ArrayBufferView<ArrayBuffer> | ArrayBuffer`, but a `Uint8Array<ArrayBufferLike>` may be backed
+  // by a `SharedArrayBuffer`, so it is not assignable without the assertion.
   const digest = await crypto.subtle.digest('SHA-256', data as BufferSource);
   return new Uint8Array(digest);
 }

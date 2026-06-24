@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
  * unchanged in the server, the CLI, and as the reference for the browser verifier — any framework
  * import here breaks that and fails the build.
  */
-class CryptoCorePurityTest {
+public class CryptoCorePurityTest {
 
     private static final JavaClasses CORE =
             new ClassFileImporter()

@@ -129,8 +129,8 @@ class SqlitePersistenceTest {
 
         assertThat(sths.count()).isEqualTo(2);
         assertThat(sths.findFirstByOrderByTreeSizeDesc().orElseThrow().getTreeSize()).isEqualTo(2L);
-        assertThat(sths.findByTreeSizeIn(List.of(1L, 2L))).hasSize(2);
         assertThat(sths.findById(1L).orElseThrow().getRootHash()).isEqualTo(hash(1));
+        assertThat(sths.findById(2L).orElseThrow().getRootHash()).isEqualTo(hash(2));
     }
 
     @Test

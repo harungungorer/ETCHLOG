@@ -10,6 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.NamedParameterSpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -140,9 +144,15 @@ public class CoreVectorGenerator {
         }
         json.append(conJoin).append("\n  ],\n");
 
-        // A signed STH over the full tree, with a fresh Ed25519 keypair. The public key (SPKI PEM)
-        // is the only material the TS verifier needs to validate the signature.
-        KeyPair kp = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+        // A signed STH over the full tree. The Ed25519 key pair is derived from a fixed seed so the
+        // committed fixture's public key and signature are byte-stable across regenerations — a
+        // fresh random key would rewrite the fixture on every run and silently break the TS parity
+        // test until re-committed. The public key is derived from the seed by deterministic curve
+        // math, so the pair is identical on every JDK. The public key (SPKI PEM) is the only
+        // material the TS verifier needs to validate the signature.
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
+        kpg.initialize(NamedParameterSpec.ED25519, deterministicRandom());
+        KeyPair kp = kpg.generateKeyPair();
         int sthSize = MAX_SIZE;
         byte[] sthRoot = MerkleTreeHash.mth(leafHashes.subList(0, sthSize));
         Ed25519SthSigner signer = new Ed25519SthSigner(kp.getPrivate());
@@ -162,6 +172,32 @@ public class CoreVectorGenerator {
         Files.writeString(OUTPUT, json.toString());
         System.out.println(
                 "Wrote shared verifier vectors to " + OUTPUT.toAbsolutePath().normalize());
+    }
+
+    /**
+     * A deterministic {@link SecureRandom} backed by a SHA-256 counter stream over a fixed seed.
+     * Used solely to make the fixture's STH key pair reproducible across regenerations; it is NOT a
+     * secure RNG and must never be used for anything but generating these test vectors.
+     */
+    private static SecureRandom deterministicRandom() throws NoSuchAlgorithmException {
+        final MessageDigest md = MessageDigest.getInstance("SHA-256");
+        return new SecureRandom() {
+            private byte[] block =
+                    md.digest(
+                            "etchlog-core-vector-fixture-key-v1".getBytes(StandardCharsets.UTF_8));
+            private int offset = 0;
+
+            @Override
+            public void nextBytes(byte[] bytes) {
+                for (int i = 0; i < bytes.length; i++) {
+                    if (offset >= block.length) {
+                        block = md.digest(block);
+                        offset = 0;
+                    }
+                    bytes[i] = block[offset++];
+                }
+            }
+        };
     }
 
     private static String b64(byte[] bytes) {

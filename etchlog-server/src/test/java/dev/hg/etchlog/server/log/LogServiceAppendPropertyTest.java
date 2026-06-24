@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -262,18 +261,6 @@ class LogServiceAppendPropertyTest {
         @Override
         public Optional<SignedTreeHeadEntity> findFirstByOrderByTreeSizeDesc() {
             return store.isEmpty() ? Optional.empty() : Optional.of(store.lastEntry().getValue());
-        }
-
-        @Override
-        public List<SignedTreeHeadEntity> findByTreeSizeIn(Collection<Long> treeSizes) {
-            List<SignedTreeHeadEntity> out = new ArrayList<>();
-            for (Long s : treeSizes) {
-                SignedTreeHeadEntity e = store.get(s);
-                if (e != null) {
-                    out.add(e);
-                }
-            }
-            return out;
         }
 
         @Override

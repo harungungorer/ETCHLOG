@@ -228,6 +228,20 @@ public class LogService {
         }
 
         long index = leaves.nextLeafIndex(); // == current tree size
+        // Defense-in-depth: the single-writer sequencer keeps leaf indices dense and gap-free, so
+        // MAX(leaf_index)+1 must equal the row count. A divergence means rows were inserted or
+        // removed outside this append path (e.g. a manual DB edit during recovery) — refuse to fold
+        // and sign a head over a corrupted leaf set rather than commit a tree head no verifier can
+        // reconstruct. currentTreeSize() reads count(); this invariant is what keeps the two equal.
+        long count = leaves.count();
+        if (index != count) {
+            throw new IllegalStateException(
+                    "leaf index sequence is not contiguous: nextLeafIndex="
+                            + index
+                            + " but count="
+                            + count
+                            + " — the log store was modified outside the sequencer");
+        }
         long treeSize = index + 1;
 
         // Persist the append-only leaf row.
