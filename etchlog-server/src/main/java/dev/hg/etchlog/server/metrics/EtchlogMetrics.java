@@ -78,9 +78,10 @@ public class EtchlogMetrics {
                         .description("Ed25519 STH signing time")
                         .register(registry);
 
+        // No baseUnit here: a base unit would suffix the Prometheus name (etchlog_tree_size_leaves),
+        // breaking the documented metric name and the alert PromQL that references etchlog_tree_size.
         Gauge.builder("etchlog.tree.size", treeSize, AtomicLong::doubleValue)
                 .description("Current number of leaves committed to the log (latest STH tree_size)")
-                .baseUnit("leaves")
                 .register(registry);
         Gauge.builder(
                         "etchlog.tree.head.timestamp",
