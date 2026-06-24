@@ -2,6 +2,7 @@ package dev.hg.etchlog.server.web;
 
 import dev.hg.etchlog.server.config.OpenApiConfig;
 import dev.hg.etchlog.server.log.AppendResult;
+import dev.hg.etchlog.server.log.InvalidRequestException;
 import dev.hg.etchlog.server.log.LeafRecord;
 import dev.hg.etchlog.server.log.LogService;
 import dev.hg.etchlog.server.web.dto.AppendRequest;
@@ -120,7 +121,7 @@ public class LogController {
                     @PathVariable("index")
                     long index) {
         if (index < 0) {
-            throw new IllegalArgumentException("leaf index must be non-negative; got " + index);
+            throw new InvalidRequestException("leaf index must be non-negative; got " + index);
         }
         LeafRecord leaf =
                 logService
@@ -169,11 +170,13 @@ public class LogController {
         try {
             leafHash = Base64.getUrlDecoder().decode(hash);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException(
-                    "hash must be valid Base64URL (RFC 4648 §5, no padding): " + ex.getMessage());
+            // Do not echo the JDK decoder's message — keep the 400 detail a stable, client-safe
+            // description rather than a leaked implementation string.
+            throw new InvalidRequestException(
+                    "hash must be valid Base64URL (RFC 4648 §5, no padding)");
         }
         if (leafHash.length != LEAF_HASH_LENGTH) {
-            throw new IllegalArgumentException(
+            throw new InvalidRequestException(
                     "hash must decode to "
                             + LEAF_HASH_LENGTH
                             + " bytes (a SHA-256 leaf hash); got "

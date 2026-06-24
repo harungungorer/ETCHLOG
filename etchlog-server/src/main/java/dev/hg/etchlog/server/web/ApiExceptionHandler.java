@@ -1,6 +1,7 @@
 package dev.hg.etchlog.server.web;
 
 import dev.hg.etchlog.server.log.DuplicateLeafException;
+import dev.hg.etchlog.server.log.InvalidRequestException;
 import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
@@ -58,12 +59,33 @@ public class ApiExceptionHandler {
                 request);
     }
 
-    /** A core/service precondition rejected the input (defensive 400). */
+    /**
+     * A request argument was invalid in a way that is safe to report verbatim — its message echoes
+     * only client-supplied parameters (see {@link InvalidRequestException}). More specific than the
+     * generic {@link IllegalArgumentException} handler below, so Spring routes these here.
+     */
+    @ExceptionHandler(InvalidRequestException.class)
+    public ProblemDetail handleInvalidRequest(
+            InvalidRequestException ex, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST, "bad-request", "Bad Request", ex.getMessage(), request);
+    }
+
+    /**
+     * A non-request {@link IllegalArgumentException} reached the web layer — e.g. an entity
+     * invariant or a lower crypto/persistence precondition. Its message may carry internal detail,
+     * so a fixed, generic detail is returned instead of echoing it; deliberate client-safe messages
+     * use {@link InvalidRequestException} above.
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(
             IllegalArgumentException ex, HttpServletRequest request) {
         return problem(
-                HttpStatus.BAD_REQUEST, "bad-request", "Bad Request", ex.getMessage(), request);
+                HttpStatus.BAD_REQUEST,
+                "bad-request",
+                "Bad Request",
+                "The request could not be processed due to an invalid argument.",
+                request);
     }
 
     /** The record's leaf hash is already in the log ({@code UNIQUE (leaf_hash)}). */

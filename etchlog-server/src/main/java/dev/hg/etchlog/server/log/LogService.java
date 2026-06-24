@@ -163,7 +163,7 @@ public class LogService {
         return metrics.recordInclusionProof(
                 () -> {
                     if (leafIndex < 0 || treeSize <= 0 || leafIndex >= treeSize) {
-                        throw new IllegalArgumentException(
+                        throw new InvalidRequestException(
                                 "require 0 <= leaf_index < tree_size (got leaf_index="
                                         + leafIndex
                                         + ", tree_size="
@@ -192,7 +192,7 @@ public class LogService {
         return metrics.recordConsistencyProof(
                 () -> {
                     if (first < 0 || second < 0 || first > second) {
-                        throw new IllegalArgumentException(
+                        throw new InvalidRequestException(
                                 "require 0 <= first <= second (got first="
                                         + first
                                         + ", second="
@@ -244,7 +244,7 @@ public class LogService {
      */
     public AppendResult append(byte[] payload) {
         if (payload == null) {
-            throw new IllegalArgumentException("payload must not be null");
+            throw new InvalidRequestException("payload must not be null");
         }
         byte[] leafHash = MerkleHash.hashLeaf(payload);
         return appendInternal(leafHash, payload.clone());

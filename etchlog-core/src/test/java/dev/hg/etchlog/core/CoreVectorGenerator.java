@@ -40,7 +40,12 @@ import org.junit.jupiter.api.Test;
 public class CoreVectorGenerator {
 
     private static final Base64.Encoder B64 = Base64.getEncoder();
-    private static final int MAX_SIZE = 9; // covers powers of two and ragged sizes (1..9)
+    // Covers powers of two (1, 2, 4, 8, 16) and ragged sizes in between (1..17), so the shared
+    // parity vectors exercise the audit/consistency-path splits across two full perfect-tree
+    // boundaries rather than one. Large wire tree_sizes (>= 2^31) cannot be materialized as real
+    // leaves; the verifier's integer width is covered separately by SplitPointTest (Java) and the
+    // bigint walk in merkle.ts (TS).
+    private static final int MAX_SIZE = 17;
     private static final long FIXED_TIMESTAMP_MS = 1_750_000_000_000L;
     private static final Path OUTPUT =
             Path.of("..", "dashboard", "src", "verifier", "__fixtures__", "core-vectors.json");
