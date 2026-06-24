@@ -85,6 +85,19 @@ class CliHttpVerifierTest {
     }
 
     @Test
+    void verifySth_viaUrl_failsWhenServerServesTamperedRoot() {
+        // A malicious server serves an STH whose root was swapped after signing: the Ed25519
+        // signature no longer covers the bytes presented, so verification must FAIL. Fetching an
+        // STH over HTTP confers no trust — the signature check is what makes it trustworthy.
+        server.set("/api/v1/log/sth", tamperedSthJson(7));
+
+        Result r =
+                run("verify", "sth", "--url", server.baseUrl(), "--pubkey", pubkeyPem.toString());
+        assertThat(r.exit).isEqualTo(CliOutput.VERIFY_FAILED);
+        assertThat(r.out).contains("FAILED");
+    }
+
+    @Test
     void verifyInclusion_viaUrl_passes() {
         Result r =
                 run(
@@ -193,6 +206,27 @@ class CliHttpVerifierTest {
                 + n
                 + ",\"root_hash\":\""
                 + b64.encodeToString(root)
+                + "\",\"timestamp\":"
+                + TS
+                + ",\"ed25519_signature\":\""
+                + b64.encodeToString(sig)
+                + "\"}";
+    }
+
+    /**
+     * An STH whose {@code root_hash} was mutated <em>after</em> signing, so the genuine signature
+     * no longer matches the bytes served. Used to prove that a tampered head fetched over {@code
+     * --url} is rejected by the signature check.
+     */
+    private String tamperedSthJson(long n) {
+        byte[] root = MerkleTreeHash.mth(leafHashes.subList(0, (int) n));
+        byte[] sig = signer.sign(n, TS, root); // signature over the GENUINE root
+        byte[] tamperedRoot = root.clone();
+        tamperedRoot[0] ^= 0x01; // serve a different root → signature can't verify
+        return "{\"tree_size\":"
+                + n
+                + ",\"root_hash\":\""
+                + b64.encodeToString(tamperedRoot)
                 + "\",\"timestamp\":"
                 + TS
                 + ",\"ed25519_signature\":\""

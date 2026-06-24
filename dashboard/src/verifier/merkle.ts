@@ -60,7 +60,11 @@ export function emptyTreeHash(): Promise<Uint8Array> {
 
 /** Largest power of two strictly less than `n` (requires `n >= 2`). */
 function largestPowerOfTwoLessThan(n: number): number {
-  // Highest set bit of (n-1). For n up to 2^31 this stays within safe integer range.
+  // `n` here is always an in-memory leaf-array length (bounded by the JS max array length, ~2^32),
+  // never a wire `tree_size`. `number` arithmetic is exact below 2^53, so this is precise for every
+  // input a browser can actually hold. The verifier's audit-path walk, which DOES consume the wire
+  // `tree_size`, uses `bigint` (see `verifyInclusion`/`verifyConsistency`) — this reference/MTH path
+  // does not, by design.
   let p = 1;
   while (p * 2 < n) p *= 2;
   return p;

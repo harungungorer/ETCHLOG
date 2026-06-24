@@ -101,20 +101,29 @@ public class LogService {
      * Looks up a leaf by its zero-based index.
      *
      * @param index the leaf index to retrieve
-     * @return the matching {@link LeafEntity}, or {@link Optional#empty()} if absent
+     * @return a detached {@link LeafRecord} view, or {@link Optional#empty()} if absent
      */
-    public Optional<LeafEntity> findEntry(long index) {
-        return leaves.findById(index);
+    public Optional<LeafRecord> findEntry(long index) {
+        return leaves.findById(index).map(LogService::toRecord);
     }
 
     /**
      * Looks up a leaf by its RFC 6962 leaf hash.
      *
      * @param leafHash the 32-byte leaf hash to look up
-     * @return the matching {@link LeafEntity}, or {@link Optional#empty()} if absent
+     * @return a detached {@link LeafRecord} view, or {@link Optional#empty()} if absent
      */
-    public Optional<LeafEntity> findEntryByHash(byte[] leafHash) {
-        return leaves.findByLeafHash(leafHash);
+    public Optional<LeafRecord> findEntryByHash(byte[] leafHash) {
+        return leaves.findByLeafHash(leafHash).map(LogService::toRecord);
+    }
+
+    /**
+     * Projects a persisted {@link LeafEntity} into a detached {@link LeafRecord}, so the JPA entity
+     * never escapes the service layer. The entity's accessors already return defensive copies; the
+     * record copies again, leaving the result fully self-contained.
+     */
+    private static LeafRecord toRecord(LeafEntity leaf) {
+        return new LeafRecord(leaf.getLeafIndex(), leaf.getPayload(), leaf.getLeafHash());
     }
 
     /** The current tree size (number of leaves committed so far). */

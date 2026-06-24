@@ -1,0 +1,12 @@
+-- V7 (PostgreSQL): drop the unused gen_random_uuid() default on api_keys.id.
+--
+-- The application always supplies the UUID itself (UUID.randomUUID() in ApiKeyEntity) so the same
+-- write path works against SQLite, which has no gen_random_uuid(). The DB default was therefore
+-- never exercised by application code. Worse, it was a footgun: a manual `INSERT` that omitted `id`
+-- would silently succeed with a DB-generated UUID the application never learns about — an orphaned,
+-- app-invisible key row. Dropping the default makes such an insert fail loudly on NOT NULL instead.
+--
+-- Forward-only / additive: we ship a new version rather than editing the applied V3 in place (the
+-- same discipline V5 used to correct an earlier index mistake). Flyway's validate-on-migrate would
+-- reject an in-place edit anyway.
+ALTER TABLE api_keys ALTER COLUMN id DROP DEFAULT;

@@ -77,4 +77,18 @@ public record ApiKeyProperties(List<String> apiKeys) {
         return apiKeys != null
                 && apiKeys.stream().anyMatch(k -> k != null && DEMO_API_KEY.equals(k.trim()));
     }
+
+    /**
+     * Never render the raw appender keys. Spring Boot can echo {@code @ConfigurationProperties}
+     * beans (the {@code configprops} actuator endpoint, a binding-failure report, or a stray {@code
+     * log.debug(props)}), and the default record {@code toString()} would print every plaintext API
+     * key — an immediate credential leak. We report only the <em>count</em> of configured keys,
+     * mirroring the redaction {@link dev.hg.etchlog.server.config.SigningProperties#toString()} and
+     * {@code SigningConfig.LogSigningKey#toString()} already apply to the signing secret.
+     */
+    @Override
+    public String toString() {
+        int count = apiKeys == null ? 0 : apiKeys.size();
+        return "ApiKeyProperties[apiKeys=<redacted; " + count + " configured>]";
+    }
 }

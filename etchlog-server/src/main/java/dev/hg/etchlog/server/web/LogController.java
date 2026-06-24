@@ -2,8 +2,8 @@ package dev.hg.etchlog.server.web;
 
 import dev.hg.etchlog.server.config.OpenApiConfig;
 import dev.hg.etchlog.server.log.AppendResult;
+import dev.hg.etchlog.server.log.LeafRecord;
 import dev.hg.etchlog.server.log.LogService;
-import dev.hg.etchlog.server.persistence.entity.LeafEntity;
 import dev.hg.etchlog.server.web.dto.AppendRequest;
 import dev.hg.etchlog.server.web.dto.AppendResponse;
 import dev.hg.etchlog.server.web.dto.ConsistencyProofResponse;
@@ -122,7 +122,7 @@ public class LogController {
         if (index < 0) {
             throw new IllegalArgumentException("leaf index must be non-negative; got " + index);
         }
-        LeafEntity leaf =
+        LeafRecord leaf =
                 logService
                         .findEntry(index)
                         .orElseThrow(
@@ -179,7 +179,7 @@ public class LogController {
                             + " bytes (a SHA-256 leaf hash); got "
                             + leafHash.length);
         }
-        LeafEntity leaf =
+        LeafRecord leaf =
                 logService
                         .findEntryByHash(leafHash)
                         .orElseThrow(
@@ -275,12 +275,12 @@ public class LogController {
     }
 
     /**
-     * Projects a stored {@link LeafEntity} into its public JSON shape. Keeping this mapping in the
-     * web layer lets {@link EntryResponse} stay a pure transport record with no persistence
-     * dependency. The entity's accessors already return defensive copies, and {@code EntryResponse}
-     * clones again on construction.
+     * Projects a {@link LeafRecord} into its public JSON shape. The service hands back a detached
+     * value type, so neither this controller nor {@link EntryResponse} imports a JPA entity — the
+     * persistence dependency stays behind the service boundary. {@code EntryResponse} clones the
+     * {@code byte[]} fields again on construction.
      */
-    private static EntryResponse toEntryResponse(LeafEntity leaf) {
-        return new EntryResponse(leaf.getLeafIndex(), leaf.getPayload(), leaf.getLeafHash());
+    private static EntryResponse toEntryResponse(LeafRecord leaf) {
+        return new EntryResponse(leaf.leafIndex(), leaf.payload(), leaf.leafHash());
     }
 }
