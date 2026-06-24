@@ -15,6 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
  * hash, so an indexed equality lookup leaks nothing exploitable about other keys (unlike a
  * character-by-character comparison of the raw key, which the hashing deliberately avoids).
  *
+ * <p>This is deliberately <em>not</em> a {@link java.security.MessageDigest#isEqual} compare: there
+ * is no second stored secret to compare the presented key against in constant time. The presented
+ * key is hashed and used as an index probe; an attacker cannot steer the probe toward a valid hash
+ * without already knowing the key, because SHA-256 is preimage-resistant. Any residual timing in
+ * the B-tree lookup is a function of the (public) key-hash distribution, not of how many leading
+ * bytes of a real key were guessed, so it carries no signal an attacker can act on.
+ *
  * @see <a
  *     href="../../../../../../../../docs/features/APPENDER_AUTHORIZATION.md">APPENDER_AUTHORIZATION.md</a>
  */

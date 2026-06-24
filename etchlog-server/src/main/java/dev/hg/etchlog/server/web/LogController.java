@@ -129,7 +129,7 @@ public class LogController {
                                 () ->
                                         new LeafNotFoundException(
                                                 "No leaf exists at index " + index));
-        return EntryResponse.from(leaf);
+        return toEntryResponse(leaf);
     }
 
     /**
@@ -186,7 +186,7 @@ public class LogController {
                                 () ->
                                         new LeafNotFoundException(
                                                 "No leaf with the given hash exists in the log"));
-        return EntryResponse.from(leaf);
+        return toEntryResponse(leaf);
     }
 
     /**
@@ -272,5 +272,15 @@ public class LogController {
     @GetMapping(path = "/sth", produces = MediaType.APPLICATION_JSON_VALUE)
     public SthResponse signedTreeHead() {
         return SthResponse.from(logService.currentSth());
+    }
+
+    /**
+     * Projects a stored {@link LeafEntity} into its public JSON shape. Keeping this mapping in the
+     * web layer lets {@link EntryResponse} stay a pure transport record with no persistence
+     * dependency. The entity's accessors already return defensive copies, and {@code EntryResponse}
+     * clones again on construction.
+     */
+    private static EntryResponse toEntryResponse(LeafEntity leaf) {
+        return new EntryResponse(leaf.getLeafIndex(), leaf.getPayload(), leaf.getLeafHash());
     }
 }

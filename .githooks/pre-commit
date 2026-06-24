@@ -1,0 +1,39 @@
+#!/bin/sh
+# Etchlog pre-commit guard — blocks commits that would turn `mvn verify` red on
+# a spotless format violation (the recurring break that reached `main` in
+# commits d54ca83 and 1501a7e).
+#
+# Opt in (per clone) with:
+#     git config core.hooksPath .githooks
+#
+# Note: this OVERRIDES any global core.hooksPath for this repository. If you rely
+# on a global hooks dir, replicate its behavior here or chain to it manually.
+#
+# Skip a single commit when you know formatting is fine:
+#     SKIP_SPOTLESS=1 git commit ...
+
+if [ "$SKIP_SPOTLESS" = "1" ]; then
+    echo "pre-commit: SKIP_SPOTLESS=1 set — skipping spotless:check."
+    exit 0
+fi
+
+# Resolve repo root so the hook works regardless of the current working dir.
+ROOT=$(git rev-parse --show-toplevel) || exit 1
+cd "$ROOT" || exit 1
+
+if [ ! -x ./mvnw ]; then
+    echo "pre-commit: ./mvnw not found or not executable; skipping spotless:check." >&2
+    exit 0
+fi
+
+echo "pre-commit: running spotless:check (set SKIP_SPOTLESS=1 to bypass)…"
+if ! ./mvnw -q spotless:check >/dev/null 2>&1; then
+    echo >&2
+    echo "✗ spotless:check failed — code is not formatted. Commit blocked." >&2
+    echo "  Fix with:  ./mvnw spotless:apply   then re-stage and commit." >&2
+    echo >&2
+    exit 1
+fi
+
+echo "pre-commit: spotless:check passed."
+exit 0

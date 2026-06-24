@@ -19,4 +19,24 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     block); required whenever {@code privateKeyPath} is set
  */
 @ConfigurationProperties(prefix = "etchlog.signing")
-public record SigningProperties(String privateKeyPath, String publicKeyPath) {}
+public record SigningProperties(String privateKeyPath, String publicKeyPath) {
+
+    /**
+     * Never render the private-key path. Spring Boot can echo {@code @ConfigurationProperties}
+     * beans (e.g. the {@code configprops} actuator endpoint, a binding-failure report, or a stray
+     * {@code log.debug(props)}), and the default record {@code toString()} would expose the
+     * filesystem location of the signing key — a useful hint to an attacker. We redact it while
+     * still reporting whether a key is configured, mirroring {@link
+     * SigningConfig.LogSigningKey#toString()}. The public-key path is published material, so it is
+     * shown verbatim.
+     */
+    @Override
+    public String toString() {
+        String priv = privateKeyPath == null || privateKeyPath.isBlank() ? "<unset>" : "<redacted>";
+        return "SigningProperties[privateKeyPath="
+                + priv
+                + ", publicKeyPath="
+                + publicKeyPath
+                + "]";
+    }
+}

@@ -1,7 +1,5 @@
 package dev.hg.etchlog.server.web.dto;
 
-import dev.hg.etchlog.server.persistence.entity.LeafEntity;
-
 /**
  * JSON view of a single leaf entry, matching the public contract {@code { leaf_index, leaf_data,
  * leaf_hash }}.
@@ -11,6 +9,9 @@ import dev.hg.etchlog.server.persistence.entity.LeafEntity;
  * application-wide naming strategy. {@code leafData} may be {@code null} when only a pre-computed
  * leaf hash was originally submitted — callers must tolerate a {@code null} / absent {@code
  * leaf_data} field.
+ *
+ * <p>This is a pure transport record with no persistence dependency: the controller projects a
+ * stored leaf into this shape, so the web DTO layer never imports a JPA entity.
  *
  * @param leafIndex the zero-based position of this leaf in the log
  * @param leafData the original record payload, or {@code null} if not stored
@@ -24,11 +25,6 @@ public record EntryResponse(long leafIndex, byte[] leafData, byte[] leafHash) {
     public EntryResponse {
         leafData = leafData == null ? null : leafData.clone();
         leafHash = leafHash == null ? null : leafHash.clone();
-    }
-
-    /** Projects a {@link LeafEntity} into its public JSON shape. */
-    public static EntryResponse from(LeafEntity leaf) {
-        return new EntryResponse(leaf.getLeafIndex(), leaf.getPayload(), leaf.getLeafHash());
     }
 
     @Override
