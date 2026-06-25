@@ -43,6 +43,7 @@ public class CryptoCorePurityTest {
                         .resideInAnyPackage(
                                 "jakarta.persistence..",
                                 "jakarta.servlet..",
+                                "javax.servlet..",
                                 "jakarta.ws.rs..",
                                 "javax.persistence..",
                                 "org.hibernate..")

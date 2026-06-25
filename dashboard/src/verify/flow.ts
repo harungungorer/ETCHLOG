@@ -21,6 +21,11 @@ export interface Verdict {
   signatureChecked: boolean;
 }
 
+/** Narrow an unknown caught value to a displayable message without an unchecked `as Error` cast. */
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 async function checkSthSignature(sth: Sth, logPublicKeyPem?: string): Promise<Verdict | null> {
   if (!logPublicKeyPem || logPublicKeyPem.trim() === '') {
     return null; // no key configured — signature not checked (caller notes this)
@@ -38,7 +43,7 @@ async function checkSthSignature(sth: Sth, logPublicKeyPem?: string): Promise<Ve
   } catch (e) {
     return {
       ok: false,
-      reason: `Could not verify STH signature: ${(e as Error).message}`,
+      reason: `Could not verify STH signature: ${errorMessage(e)}`,
       signatureChecked: true,
     };
   }

@@ -145,6 +145,19 @@ class ProofAndSthControllerTest {
                 .andExpect(status().isNotFound()); // second exceeds current log
         mvc.perform(get("/api/v1/log/proofs/consistency").param("first", "5").param("second", "3"))
                 .andExpect(status().isBadRequest()); // first > second
+
+        // A non-numeric parameter is a 400, and the response must not echo the raw bad value back.
+        String typeMismatch =
+                mvc.perform(
+                                get("/api/v1/log/proofs/inclusion")
+                                        .param("leaf_index", "0")
+                                        .param("tree_size", "not-a-number"))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.status").value(400))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(typeMismatch).doesNotContain("not-a-number");
     }
 
     private static String b64(byte[] b) {

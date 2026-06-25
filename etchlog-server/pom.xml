@@ -224,6 +224,16 @@
                         <groupId>org.springframework.boot</groupId>
                         <artifactId>spring-boot-maven-plugin</artifactId>
                         <executions>
+                            <!-- The native binary is the artifact for a `-Pnative` build, so suppress
+                                 the fat-jar repackage inherited from the base build: same execution id
+                                 + phase `none` unbinds it. Otherwise `mvn -Pnative package` would also
+                                 emit an unused …-exec.jar alongside the binary. The plain thin jar
+                                 (maven-jar-plugin) is still produced, so the failsafe ITs that resolve
+                                 the project artifact are unaffected. -->
+                            <execution>
+                                <id>repackage</id>
+                                <phase>none</phase>
+                            </execution>
                             <execution>
                                 <id>process-aot</id>
                                 <goals>

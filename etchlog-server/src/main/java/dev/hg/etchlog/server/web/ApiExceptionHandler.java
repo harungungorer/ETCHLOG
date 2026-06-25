@@ -4,6 +4,8 @@ import dev.hg.etchlog.server.log.DuplicateLeafException;
 import dev.hg.etchlog.server.log.InvalidRequestException;
 import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     /** Bean-validation failure on a request body (e.g. missing/empty {@code leaf_data}). */
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -113,16 +117,25 @@ public class ApiExceptionHandler {
     /**
      * A path variable or query parameter could not be converted to its declared type — e.g. a
      * non-numeric {@code {index}} or {@code tree_size} yields a 400 rather than a 500.
+     *
+     * <p>The detail names the offending parameter and its expected type (both fixed by the
+     * controller signature) but deliberately never echoes the client-supplied raw value: reflecting
+     * unsanitized input back into the response body is a needless injection vector and leaks
+     * nothing useful for diagnosing a type error.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(
             MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
-        return problem(
-                HttpStatus.BAD_REQUEST,
-                "bad-request",
-                "Bad Request",
-                "Parameter '" + ex.getName() + "' has an invalid value: " + ex.getValue(),
-                request);
+        Class<?> required = ex.getRequiredType();
+        String detail =
+                required != null
+                        ? "Parameter '"
+                                + ex.getName()
+                                + "' must be a valid "
+                                + required.getSimpleName()
+                                + "."
+                        : "Parameter '" + ex.getName() + "' has an invalid value.";
+        return problem(HttpStatus.BAD_REQUEST, "bad-request", "Bad Request", detail, request);
     }
 
     /** A required query parameter was absent (e.g. {@code hash}, {@code leaf_index}). */
@@ -146,6 +159,31 @@ public class ApiExceptionHandler {
                 "tree-size-out-of-range",
                 "Tree Size Out Of Range",
                 ex.getMessage(),
+                request);
+    }
+
+    /**
+     * An internal invariant failed while serving the request — e.g. a materialized Merkle node is
+     * missing because the store was modified outside the single-writer sequencer (see {@code
+     * LogService}). This is never the normal path; it signals store corruption, not bad input.
+     *
+     * <p>The exception message carries internal coordinates (tree levels, node indices, row counts)
+     * that must not reach a client, so the real cause is logged server-side at {@code ERROR} and
+     * the response is a fixed, generic 500. Without this handler the message would surface verbatim
+     * in Spring's default 500 problem-detail body.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
+        log.error(
+                "Internal invariant violated handling {} {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                ex);
+        return problem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "internal-error",
+                "Internal Server Error",
+                "The request could not be completed due to an internal error.",
                 request);
     }
 

@@ -111,7 +111,10 @@ public class SigningConfig {
                             new PKCS8EncodedKeySpec(decodePem(privatePem, "PRIVATE KEY")));
             PublicKey publicKey =
                     kf.generatePublic(new X509EncodedKeySpec(decodePem(publicPem, "PUBLIC KEY")));
-            log.info("Loaded Ed25519 signing key from {}", privatePem);
+            // Log only the file name, never the full path: the key bytes are already protected, but
+            // the absolute path (e.g. /run/secrets/…) would leak the deployment's filesystem layout
+            // to anyone with log access. The name alone confirms a key was loaded.
+            log.info("Loaded Ed25519 signing key from {}", privatePem.getFileName());
             return new LogSigningKey(privateKey, publicKey);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Failed to parse Ed25519 key material", e);
