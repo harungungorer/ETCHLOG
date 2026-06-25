@@ -88,7 +88,7 @@ The verifiable-log ecosystem today is almost entirely Go (Trillian, Sigstore Rek
 | **Appender authorization** | API-key write authentication (Spring Security). **Reads and proofs are public** — that *is* the transparency property. |
 | **`etchlog-spring-boot-starter`** | Auto-configuration so any Spring Boot app appends via a single injected bean and a few properties. |
 | **Verification dashboard** | React/TS UI: append entries, watch the Merkle tree grow, verify proofs **in-browser**, and run the live tamper-detection demo. |
-| **Single-binary distribution** | GraalVM native image, sub-50 ms startup, low memory. |
+| **Single-binary distribution** | GraalVM native image, ~0.8 s startup, low memory. |
 | **Observability** | Micrometer metrics (append latency, tree size, proof-generation time) on a Prometheus scrape endpoint. |
 
 ---
@@ -150,7 +150,7 @@ This brings up PostgreSQL + the Etchlog server. A demo Ed25519 key and a demo AP
 chmod +x etchlog
 # Run with the embedded SQLite profile — zero external dependencies
 ./etchlog --spring.profiles.active=sqlite
-# Startup is sub-50ms; the log lives in ./etchlog.db
+# Startup is ~0.8 s; the log lives in ./etchlog.db
 ```
 
 > 💡 **Tip** — The SQLite profile is perfect for demos, laptops, and air-gapped evaluation. Use the PostgreSQL profile for anything you intend to keep.
