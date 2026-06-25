@@ -172,4 +172,68 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- GraalVM native image (Milestone 9). Activated with `-Pnative`.
+             Produces a single ahead-of-time-compiled executable at
+             target/etchlog-server (the name the multi-stage Dockerfile copies out).
+
+             This reactor imports the Spring Boot BOM instead of inheriting
+             spring-boot-starter-parent, so the parent's stock `native` profile is not
+             available — it is reconstructed here:
+               * spring-boot:process-aot  (prepare-package) generates the AOT sources,
+                 bean definitions, and reachability hints Spring contributes.
+               * native:add-reachability-metadata pulls community metadata (PostgreSQL,
+                 HikariCP, etc.) from the GraalVM reachability-metadata repository.
+               * native:compile-no-fork (package) runs the whole-program native compile.
+
+             Bound to `package` so the documented Docker build command
+             (`mvn -Pnative -DskipTests clean package`) emits the binary directly. -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <configuration>
+                            <imageName>etchlog-server</imageName>
+                            <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                            <metadataRepository>
+                                <enabled>true</enabled>
+                            </metadataRepository>
+                            <requiredVersion>22.3</requiredVersion>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>add-reachability-metadata</id>
+                                <goals>
+                                    <goal>add-reachability-metadata</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>build-native</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>process-aot</id>
+                                <goals>
+                                    <goal>process-aot</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
