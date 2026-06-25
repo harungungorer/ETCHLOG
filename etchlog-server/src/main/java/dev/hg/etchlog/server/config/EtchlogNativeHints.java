@@ -15,8 +15,10 @@ import org.springframework.context.annotation.ImportRuntimeHints;
  * <p>These hints live in the server module deliberately: {@code etchlog-core} stays free of any
  * framework type (the ArchUnit boundary), and the cryptographic core needs no hints — it signs with
  * the JDK's built-in EdDSA provider, which GraalVM registers automatically because it is reachable.
- * What native-image <em>cannot</em> infer are the runtime-resolved resource paths and
- * reflectively-named classes below.
+ * We nonetheless <em>pin</em> that provider's entry points defensively below (see the Ed25519
+ * block), so a {@code verify-sth} on the native binary cannot silently regress if GraalVM's
+ * automatic SunEC registration ever changes. What native-image otherwise <em>cannot</em> infer are
+ * the runtime-resolved resource paths and reflectively-named classes below.
  */
 @Configuration(proxyBeanMethods = false)
 @ImportRuntimeHints(EtchlogNativeHints.Registrar.class)
@@ -60,6 +62,27 @@ public class EtchlogNativeHints {
                             "org.postgresql.Driver",
                             MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                             MemberCategory.INVOKE_PUBLIC_METHODS);
+
+            // Ed25519 STH signing/verification resolves through the JDK SunEC provider by the JCA
+            // string name "Ed25519" (Signature/KeyFactory.getInstance). GraalVM normally registers
+            // the reachable SunEC services on its own, but pin the provider and the EdDSA SPI entry
+            // points defensively so signing on the server — and verify-sth on the standalone native
+            // binary — cannot regress if that automatic registration shifts between JDK/GraalVM
+            // versions. registerTypeIfPresent is a no-op when a JDK-internal class is absent or
+            // renamed, so this stays safe across crypto-provider reshuffles.
+            for (String edClass :
+                    new String[] {
+                        "sun.security.ec.SunEC",
+                        "sun.security.ec.ed.EdDSASignature",
+                        "sun.security.ec.ed.EdDSAKeyFactory"
+                    }) {
+                hints.reflection()
+                        .registerTypeIfPresent(
+                                classLoader,
+                                edClass,
+                                MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                                MemberCategory.INVOKE_PUBLIC_METHODS);
+            }
 
             // Flyway loads its plugins (including every ConfigurationExtension) via
             // ServiceLoader on the Plugin SPI, then reflectively invokes their getters/setters to

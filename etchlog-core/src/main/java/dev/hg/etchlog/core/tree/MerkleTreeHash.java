@@ -44,7 +44,17 @@ public final class MerkleTreeHash {
         return MerkleHash.hashChildren(left, right);
     }
 
-    /** Largest power of two strictly less than {@code n} (requires {@code n >= 2}). */
+    /**
+     * Largest power of two strictly less than {@code n} (requires {@code n >= 2}).
+     *
+     * <p>Intentionally {@code int}, and intentionally package-private. This reference MTH only ever
+     * runs over an in-memory {@link List} of leaf hashes whose size is bounded by {@code
+     * Integer.MAX_VALUE}, so {@code n} cannot overflow here. The proof generators in {@code
+     * dev.hg.etchlog.core.proof} operate on {@code long} tree sizes and deliberately carry their
+     * own {@code long} versions of this helper — keeping this one confined to the {@code tree}
+     * package means a future tree of {@code > 2^31} leaves can never accidentally truncate an audit
+     * path by reusing the {@code int} split point.
+     */
     static int largestPowerOfTwoLessThan(int n) {
         // Highest set bit of (n-1) gives the largest 2^x < n.
         return Integer.highestOneBit(n - 1);

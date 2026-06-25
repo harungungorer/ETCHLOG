@@ -241,12 +241,6 @@ class LogServiceAppendPropertyTest {
         }
 
         @Override
-        public List<TreeNodeEntity> findByLevelAndNodeIndexLessThanOrderByNodeIndexAsc(
-                int level, long nodeIndexExclusive) {
-            return new ArrayList<>(byLevel(level).headMap(nodeIndexExclusive).values());
-        }
-
-        @Override
         public long count() {
             return levels.values().stream().mapToLong(Map::size).sum();
         }

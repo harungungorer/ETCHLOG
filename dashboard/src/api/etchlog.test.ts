@@ -6,6 +6,7 @@ import {
   getInclusionProof,
   getConsistencyProof,
   EtchlogApiError,
+  EtchlogProtocolError,
 } from './etchlog';
 import { bytesToBase64 } from '../verifier/encoding';
 
@@ -85,5 +86,25 @@ describe('etchlog API client', () => {
     mockFetch(404, { detail: 'No leaf exists at index 9999', status: 404 });
     await expect(getEntry(9999)).rejects.toBeInstanceOf(EtchlogApiError);
     await expect(getEntry(9999)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('rejects an inclusion proof whose audit_path is missing (not a silent pass)', async () => {
+    mockFetch(200, { leaf_index: 1, tree_size: 5 }); // no audit_path
+    await expect(getInclusionProof(1, 5)).rejects.toBeInstanceOf(EtchlogProtocolError);
+  });
+
+  it('rejects an inclusion proof whose audit_path is not an array of strings', async () => {
+    mockFetch(200, { leaf_index: 1, tree_size: 5, audit_path: [1, 2, 3] });
+    await expect(getInclusionProof(1, 5)).rejects.toBeInstanceOf(EtchlogProtocolError);
+  });
+
+  it('rejects a consistency proof whose proof field is absent', async () => {
+    mockFetch(200, { first: 2, second: 5 }); // no proof
+    await expect(getConsistencyProof(2, 5)).rejects.toBeInstanceOf(EtchlogProtocolError);
+  });
+
+  it('rejects an STH whose root_hash is the wrong type', async () => {
+    mockFetch(200, { tree_size: 5, root_hash: 123, timestamp: 1, ed25519_signature: 'AA==' });
+    await expect(getSth()).rejects.toBeInstanceOf(EtchlogProtocolError);
   });
 });

@@ -2,7 +2,9 @@ package dev.hg.etchlog.server.demo;
 
 import dev.hg.etchlog.core.hash.MerkleHash;
 import dev.hg.etchlog.server.persistence.entity.LeafEntity;
+import dev.hg.etchlog.server.persistence.entity.SignedTreeHeadEntity;
 import dev.hg.etchlog.server.persistence.repository.LeafRepository;
+import dev.hg.etchlog.server.persistence.repository.SignedTreeHeadRepository;
 import dev.hg.etchlog.server.persistence.repository.TreeNodeRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -59,14 +61,19 @@ public class DemoTamperService {
 
     private final LeafRepository leaves;
     private final TreeNodeRepository nodes;
+    private final SignedTreeHeadRepository sths;
     private final Environment environment;
 
     @PersistenceContext private EntityManager em;
 
     public DemoTamperService(
-            LeafRepository leaves, TreeNodeRepository nodes, Environment environment) {
+            LeafRepository leaves,
+            TreeNodeRepository nodes,
+            SignedTreeHeadRepository sths,
+            Environment environment) {
         this.leaves = leaves;
         this.nodes = nodes;
+        this.sths = sths;
         this.environment = environment;
     }
 
@@ -113,8 +120,19 @@ public class DemoTamperService {
         // are left untouched, so the now-consistent tampered tree hashes to a root that no longer
         // matches the validly-signed head — and every inclusion/consistency proof checked against
         // that head is rejected. That is the tamper alarm.
+        // Use the served tree size — the size the latest signed tree head commits to — rather than
+        // a
+        // live leaves.count(). The materialized tree_nodes correspond to exactly the signed/served
+        // tree, and a count() taken mid-transaction could drift if an append commits concurrently,
+        // skewing which ancestors are treated as complete. The latest STH is the authoritative
+        // boundary; fall back to count() defensively only if (impossibly) no STH exists yet.
+        long servedTreeSize =
+                sths.findFirstByOrderByTreeSizeDesc()
+                        .map(SignedTreeHeadEntity::getTreeSize)
+                        .orElseGet(leaves::count);
+
         updateNodeHash(0, index, tamperedHash);
-        rewriteMaterializedAncestors(index, tamperedHash, leaves.count());
+        rewriteMaterializedAncestors(index, tamperedHash, servedTreeSize);
 
         return new TamperResult(index, tamperedPayload, tamperedHash);
     }

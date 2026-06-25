@@ -59,6 +59,20 @@ export class EtchlogApiError extends Error {
   }
 }
 
+/**
+ * Thrown when a 2xx response does not match the documented wire shape (e.g. a proof with a missing
+ * or non-array `audit_path`). Distinct from {@link EtchlogApiError} (an HTTP-level failure): this is
+ * a protocol mismatch on an otherwise-successful request. Surfacing it explicitly — rather than
+ * letting an `undefined.map(...)` throw an opaque `TypeError` — keeps the failure legible and means
+ * a malformed proof can never be silently coerced into a VERIFIED verdict downstream.
+ */
+export class EtchlogProtocolError extends Error {
+  constructor(message: string) {
+    super(`Etchlog malformed response: ${message}`);
+    this.name = 'EtchlogProtocolError';
+  }
+}
+
 async function request(path: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(`${API_BASE}${path}`, init);
   const text = await res.text();
@@ -73,50 +87,76 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
   return body;
 }
 
-// Raw wire shapes (snake_case as documented). Decoded into the byte-typed interfaces above.
-interface SthWire {
-  tree_size: number;
-  root_hash: string;
-  timestamp: number;
-  ed25519_signature: string;
-}
-interface EntryWire {
-  leaf_index: number;
-  leaf_data: string;
-  leaf_hash: string;
+// --- Wire-shape validators: narrow `unknown` at the decode boundary so every byte we feed the
+// verifier is known-typed. Each throws EtchlogProtocolError on a shape mismatch. ---
+
+function asObject(v: unknown, ctx: string): Record<string, unknown> {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+    throw new EtchlogProtocolError(`${ctx}: expected a JSON object`);
+  }
+  return v as Record<string, unknown>;
 }
 
-function decodeSth(w: SthWire): Sth {
+function num(o: Record<string, unknown>, field: string, ctx: string): number {
+  const v = o[field];
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new EtchlogProtocolError(`${ctx}.${field}: expected a number`);
+  }
+  return v;
+}
+
+function str(o: Record<string, unknown>, field: string, ctx: string): string {
+  const v = o[field];
+  if (typeof v !== 'string') {
+    throw new EtchlogProtocolError(`${ctx}.${field}: expected a base64 string`);
+  }
+  return v;
+}
+
+function strArray(o: Record<string, unknown>, field: string, ctx: string): string[] {
+  const v = o[field];
+  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) {
+    throw new EtchlogProtocolError(`${ctx}.${field}: expected an array of base64 strings`);
+  }
+  return v as string[];
+}
+
+// Raw wire shapes (snake_case as documented) are validated field-by-field by the decoders below,
+// so the byte-typed interfaces above are only ever built from known-good data.
+
+function decodeSth(v: unknown): Sth {
+  const o = asObject(v, 'sth');
   return {
-    treeSize: w.tree_size,
-    rootHash: base64ToBytes(w.root_hash),
-    timestamp: w.timestamp,
-    signature: base64ToBytes(w.ed25519_signature),
+    treeSize: num(o, 'tree_size', 'sth'),
+    rootHash: base64ToBytes(str(o, 'root_hash', 'sth')),
+    timestamp: num(o, 'timestamp', 'sth'),
+    signature: base64ToBytes(str(o, 'ed25519_signature', 'sth')),
   };
 }
 
-function decodeEntry(w: EntryWire): Entry {
+function decodeEntry(v: unknown): Entry {
+  const o = asObject(v, 'entry');
   return {
-    leafIndex: w.leaf_index,
-    leafData: base64ToBytes(w.leaf_data),
-    leafHash: base64ToBytes(w.leaf_hash),
+    leafIndex: num(o, 'leaf_index', 'entry'),
+    leafData: base64ToBytes(str(o, 'leaf_data', 'entry')),
+    leafHash: base64ToBytes(str(o, 'leaf_hash', 'entry')),
   };
 }
 
 /** `GET /log/sth` — the log's latest Signed Tree Head. Public. */
 export async function getSth(): Promise<Sth> {
-  return decodeSth((await request('/log/sth')) as SthWire);
+  return decodeSth(await request('/log/sth'));
 }
 
 /** `GET /log/entries/{index}` — fetch the stored leaf at an index. Public. */
 export async function getEntry(index: number): Promise<Entry> {
-  return decodeEntry((await request(`/log/entries/${index}`)) as EntryWire);
+  return decodeEntry(await request(`/log/entries/${index}`));
 }
 
 /** `GET /log/entries?hash=<base64url>` — look up a leaf by its RFC 6962 leaf hash. Public. */
 export async function getEntryByHash(leafHash: Uint8Array): Promise<Entry> {
   const q = encodeURIComponent(bytesToBase64Url(leafHash));
-  return decodeEntry((await request(`/log/entries?hash=${q}`)) as EntryWire);
+  return decodeEntry(await request(`/log/entries?hash=${q}`));
 }
 
 /** `GET /log/proofs/inclusion?leaf_index=I&tree_size=N` — inclusion (audit) path. Public. */
@@ -124,13 +164,14 @@ export async function getInclusionProof(
   leafIndex: number,
   treeSize: number,
 ): Promise<InclusionProofResult> {
-  const w = (await request(
-    `/log/proofs/inclusion?leaf_index=${leafIndex}&tree_size=${treeSize}`,
-  )) as { leaf_index: number; tree_size: number; audit_path: string[] };
+  const o = asObject(
+    await request(`/log/proofs/inclusion?leaf_index=${leafIndex}&tree_size=${treeSize}`),
+    'inclusion proof',
+  );
   return {
-    leafIndex: w.leaf_index,
-    treeSize: w.tree_size,
-    auditPath: w.audit_path.map(base64ToBytes),
+    leafIndex: num(o, 'leaf_index', 'inclusion proof'),
+    treeSize: num(o, 'tree_size', 'inclusion proof'),
+    auditPath: strArray(o, 'audit_path', 'inclusion proof').map(base64ToBytes),
   };
 }
 
@@ -139,12 +180,15 @@ export async function getConsistencyProof(
   first: number,
   second: number,
 ): Promise<ConsistencyProofResult> {
-  const w = (await request(`/log/proofs/consistency?first=${first}&second=${second}`)) as {
-    first: number;
-    second: number;
-    proof: string[];
+  const o = asObject(
+    await request(`/log/proofs/consistency?first=${first}&second=${second}`),
+    'consistency proof',
+  );
+  return {
+    first: num(o, 'first', 'consistency proof'),
+    second: num(o, 'second', 'consistency proof'),
+    proof: strArray(o, 'proof', 'consistency proof').map(base64ToBytes),
   };
-  return { first: w.first, second: w.second, proof: w.proof.map(base64ToBytes) };
 }
 
 /**
@@ -155,12 +199,15 @@ export async function getConsistencyProof(
  * browser beyond this call's configured value.
  */
 export async function appendEntry(leafData: Uint8Array, apiKey: string): Promise<AppendResult> {
-  const body = (await request('/log/entries', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
-    body: JSON.stringify({ leaf_data: bytesToBase64(leafData) }),
-  })) as { leaf_index: number; sth: SthWire };
-  return { leafIndex: body.leaf_index, sth: decodeSth(body.sth) };
+  const o = asObject(
+    await request('/log/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+      body: JSON.stringify({ leaf_data: bytesToBase64(leafData) }),
+    }),
+    'append',
+  );
+  return { leafIndex: num(o, 'leaf_index', 'append'), sth: decodeSth(o.sth) };
 }
 
 /**
@@ -169,14 +216,10 @@ export async function appendEntry(leafData: Uint8Array, apiKey: string): Promise
  * afterwards detects the tampering. Not part of the production API.
  */
 export async function tamperLeaf(index: number): Promise<TamperResult> {
-  const body = (await request(`/_demo/tamper/${index}`, { method: 'POST' })) as {
-    leaf_index: number;
-    tampered_leaf_data: string;
-    tampered_leaf_hash: string;
-  };
+  const o = asObject(await request(`/_demo/tamper/${index}`, { method: 'POST' }), 'tamper');
   return {
-    leafIndex: body.leaf_index,
-    tamperedLeafData: base64ToBytes(body.tampered_leaf_data),
-    tamperedLeafHash: base64ToBytes(body.tampered_leaf_hash),
+    leafIndex: num(o, 'leaf_index', 'tamper'),
+    tamperedLeafData: base64ToBytes(str(o, 'tampered_leaf_data', 'tamper')),
+    tamperedLeafHash: base64ToBytes(str(o, 'tampered_leaf_hash', 'tamper')),
   };
 }
