@@ -40,6 +40,9 @@
         <bouncycastle.version>1.79</bouncycastle.version>
         <spotless.version>2.43.0</spotless.version>
         <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
+        <!-- JaCoCo: coverage agent/report; gates etchlog-core at >90% line+branch.
+             0.8.12 is the first release with full Java 21 class-file support. -->
+        <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
     <dependencyManagement>
@@ -186,6 +189,13 @@
                     <groupId>org.graalvm.buildtools</groupId>
                     <artifactId>native-maven-plugin</artifactId>
                     <version>${native-buildtools.version}</version>
+                </plugin>
+                <!-- Coverage agent/report; version centralized here. The >90%
+                     enforcement (check goal) is configured in etchlog-core only. -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
