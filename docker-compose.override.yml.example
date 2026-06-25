@@ -1,0 +1,25 @@
+# docker-compose.override.yml.example — DEV ONLY.
+#
+# Copy to docker-compose.override.yml (gitignored) and it is auto-merged on `docker compose up`,
+# layering local-development convenience over the prod-shaped base file:
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker compose up -d        # base + override merge automatically
+#
+# Production uses the base file only: docker compose -f docker-compose.yml up -d
+services:
+  app:
+    # Build the native image from local source instead of pulling the published tag.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: etchlog:local
+    environment:
+      # Convenience-only demo key. NEVER use in prod.
+      ETCHLOG_SECURITY_API_KEYS: etchlog-demo-key-change-me
+      LOGGING_LEVEL_DEV_HG_ETCHLOG: DEBUG
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "*"
+    ports:
+      - "8080:8080"        # exposed on all interfaces for convenience in dev
+    deploy:
+      resources: {}        # no limits in dev

@@ -1,0 +1,3 @@
+# Resolve Docker/K8s *_FILE secrets into properties before the context (and datasource) is built.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+dev.hg.etchlog.server.config.SecretFileEnvironmentPostProcessor

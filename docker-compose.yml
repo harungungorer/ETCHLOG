@@ -1,0 +1,105 @@
+# docker-compose.yml — production stack: app (native binary) + PostgreSQL.
+#
+# This is the BASE file (prod-shaped). For local development, a docker-compose.override.yml
+# is auto-merged on `docker compose up` — copy docker-compose.override.yml.example to start.
+# Run prod explicitly with: docker compose -f docker-compose.yml up -d
+#
+# Secrets are file-mounted, never baked into an image or env. Create them once on the host:
+#   mkdir -p secrets
+#   openssl rand -base64 32 > secrets/db_password.txt
+#   # Ed25519 signing key (PKCS#8 PEM) — the single most sensitive secret — plus its public PEM:
+#   openssl genpkey -algorithm ed25519 -out secrets/etchlog-signing-key.pem
+#   openssl pkey -in secrets/etchlog-signing-key.pem -pubout -out secrets/etchlog-signing-pub.pem
+#   chmod 600 secrets/*
+name: etchlog
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: etchlog
+      POSTGRES_USER: etchlog
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - etchlog-db:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etchlog -d etchlog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  app:
+    image: ghcr.io/harungungorer/etchlog:${ETCHLOG_TAG:-0.1.0}
+    # For a local source build instead of the published image, uncomment:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      SERVER_ADDRESS: 0.0.0.0          # inside the container only; not host-exposed publicly
+      SERVER_PORT: "8080"
+      # The postgres profile reads PG* env vars (see application-postgres.yml).
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: etchlog
+      PGUSER: etchlog
+      # File-mounted secret resolved by SecretFileEnvironmentPostProcessor (PGPASSWORD_FILE ->
+      # PGPASSWORD), so the password never appears in `docker inspect`.
+      PGPASSWORD_FILE: /run/secrets/db_password
+      # Both PEMs are required when a signing key is configured (SigningConfig).
+      ETCHLOG_SIGNING_PRIVATE_KEY_PATH: /run/secrets/signing_key
+      ETCHLOG_SIGNING_PUBLIC_KEY_PATH: /run/secrets/signing_pub_key
+      ETCHLOG_SECURITY_API_KEYS: ${ETCHLOG_SECURITY_API_KEYS:?set a real appender key}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    secrets:
+      - db_password
+      - signing_key
+      - signing_pub_key
+    ports:
+      # Bind to loopback; the reverse proxy on the host fronts TLS.
+      - "127.0.0.1:8080:8080"
+    networks:
+      - backend
+    healthcheck:
+      # The binary supports a self-check flag for distroless (no curl available).
+      test: ["CMD", "/app/etchlog", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+        reservations:
+          memory: 96m
+
+volumes:
+  etchlog-db:
+
+networks:
+  backend:
+    driver: bridge
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  signing_key:
+    file: ./secrets/etchlog-signing-key.pem
+  signing_pub_key:
+    file: ./secrets/etchlog-signing-pub.pem
