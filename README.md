@@ -70,7 +70,7 @@ The verifiable-log ecosystem today is almost entirely Go (Trillian, Sigstore Rek
 - ❌ **Not a blockchain.** No consensus, no distributed nodes, no tokens, no mining. It is a single-operator verifiable log.
 - ❌ **Not a Trillian / Rekor competitor on scale.** Do not expect tile-based, billion-entry, multi-sequencer throughput. Etchlog is a single-node sequencer.
 - ❌ **Tamper-evident, not tamper-proof.** It makes tampering *detectable*, not *impossible*.
-- ❌ **v1 does not solve "who watches the log"** (witness / gossip cosigning). Full guarantees require an external monitor that periodically fetches and verifies Signed Tree Heads. This is a known, intentional v1 limitation tracked in the ROADMAP.
+- ❌ **v1 does not solve "who watches the log"** (witness / gossip cosigning). Full guarantees require an external monitor that periodically fetches and verifies Signed Tree Heads. This is a known, intentional v1 limitation.
 
 ---
 
@@ -126,8 +126,6 @@ This is the whole thesis in 10 seconds: the operator changed the database, and t
 | Frontend | React + TypeScript + Vite + Tailwind | 18 / 5 / 5 / 3 |
 | Testing | JUnit 5, Testcontainers, jqwik (property-based), ArchUnit | — |
 
-See TECH_STACK.md for the justification of each choice.
-
 ---
 
 ## 5-Minute Quick Start
@@ -179,8 +177,6 @@ etchlog-cli verify-inclusion \
 # → ✅ INCLUSION PROOF VALID
 ```
 
-See QUICK_START.md for the full one-minute walkthrough.
-
 ---
 
 ## How it works (60 seconds)
@@ -202,8 +198,6 @@ Leaves are hashed and combined pairwise into a Merkle tree. The root hash commit
 
 An **inclusion proof** for `leaf2` is the audit path `[ leaf3, H(d0,d1) ]` — just enough sibling hashes to recompute the root. A **consistency proof** shows that the size-2 tree's root is a prefix-preserving ancestor of the size-4 tree's root. The **STH** signs the root with Ed25519, so the operator cannot present two different histories.
 
-Full detail: MERKLE_LOG_ENGINE.md and PROOFS_AND_VERIFICATION.md.
-
 ---
 
 ## Project / Module Structure
@@ -224,7 +218,7 @@ etchlog/
 └── dashboard/                    # React + TS + Vite: visualize tree, verify in-browser, tamper demo
 ```
 
-> 🔒 **Security** — `etchlog-core` has **no Spring dependencies** by design. An ArchUnit test fails the build if anyone imports `org.springframework.*` into the crypto core. This keeps the verifier auditable, embeddable, and reusable in the CLI, the dashboard's TS port, and third-party apps. See DEVELOPMENT_GUIDE.md.
+> 🔒 **Security** — `etchlog-core` has **no Spring dependencies** by design. An ArchUnit test fails the build if anyone imports `org.springframework.*` into the crypto core. This keeps the verifier auditable, embeddable, and reusable in the CLI, the dashboard's TS port, and third-party apps.
 
 ---
 
@@ -300,15 +294,13 @@ cd etchlog
 
 > ❌ **Don't** — Add a Spring (or any framework) import to `etchlog-core`. The ArchUnit boundary test will fail the build.
 
-Full guide: CONTRIBUTING.md.
-
 ---
 
 ## License
 
 The Etchlog **server** is licensed under **AGPL-3.0**. See [LICENSE](./LICENSE).
 
-> ℹ️ **Open decision** — The reusable `etchlog-spring-boot-starter` may instead ship under **Apache-2.0** to maximize adoption (a client library under AGPL discourages embedding). This is the single open licensing decision, tracked in ROADMAP.md and discussed in OPERATOR_AND_LICENSE_NOTES.md.
+> ℹ️ **Open decision** — The reusable `etchlog-spring-boot-starter` may instead ship under **Apache-2.0** to maximize adoption (a client library under AGPL discourages embedding). This is the single open licensing decision.
 
 ---
 
