@@ -1,8 +1,6 @@
 package dev.hg.etchlog.server.log;
 
 import dev.hg.etchlog.core.hash.MerkleHash;
-import dev.hg.etchlog.core.proof.ConsistencyProof;
-import dev.hg.etchlog.core.proof.InclusionProof;
 import dev.hg.etchlog.core.sth.Ed25519SthSigner;
 import dev.hg.etchlog.core.sth.SignedTreeHead;
 import dev.hg.etchlog.server.metrics.EtchlogMetrics;
@@ -175,7 +173,8 @@ public class LogService {
                         throw new ProofNotAvailableException(
                                 "tree_size " + treeSize + " exceeds the current log size " + size);
                     }
-                    return InclusionProof.generate(leafHashesUpTo(treeSize), leafIndex, treeSize);
+                    return MaterializedProofGenerator.inclusionPath(
+                            nodeSource(), leafIndex, treeSize);
                 });
     }
 
@@ -207,31 +206,29 @@ public class LogService {
                     if (first == 0 || first == second) {
                         return List.of();
                     }
-                    return ConsistencyProof.generate(leafHashesUpTo(second), first, second);
+                    return MaterializedProofGenerator.consistencyProof(nodeSource(), first, second);
                 });
     }
 
     /**
-     * Loads leaf hashes for indices {@code [0, n)} from the materialized level-0 nodes, in order.
-     * Fetches only the {@code n} rows the proof needs (range scan on the {@code (level,
-     * node_index)} index) instead of materializing the entire level, so proofs against a historical
-     * {@code tree_size} stay cheap on a large log.
+     * A {@link MaterializedProofGenerator.NodeSource} backed by the {@code tree_nodes} table: each
+     * perfect-subtree node is fetched by its {@code (level, node_index)} primary key. Proof
+     * generation asks only for complete (hence materialized) subtrees within the requested tree
+     * size, so a missing node means the store was corrupted — fail loudly rather than emit a proof
+     * that no verifier could reconstruct.
      */
-    private List<byte[]> leafHashesUpTo(long n) {
-        List<TreeNodeEntity> level0 =
-                nodes.findByLevelAndNodeIndexLessThanOrderByNodeIndexAsc(0, n);
-        if (level0.size() != n) {
-            // Level-0 nodes are materialized 1:1 with leaves, so [0, n) is always dense. A
-            // shortfall
-            // means the store is inconsistent — fail loudly rather than sign a truncated tree.
-            throw new IllegalStateException(
-                    "expected " + n + " level-0 nodes for the proof, found " + level0.size());
-        }
-        List<byte[]> hashes = new ArrayList<>((int) n);
-        for (TreeNodeEntity node : level0) {
-            hashes.add(node.getNodeHash());
-        }
-        return hashes;
+    private MaterializedProofGenerator.NodeSource nodeSource() {
+        return (level, index) ->
+                nodes.findByLevelAndNodeIndex(level, index)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "missing materialized node ("
+                                                        + level
+                                                        + ", "
+                                                        + index
+                                                        + ") while generating a proof"))
+                        .getNodeHash();
     }
 
     /**
