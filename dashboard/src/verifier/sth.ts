@@ -31,7 +31,14 @@ export interface Sth {
   signature: Uint8Array;
 }
 
-/** Produces the exact bytes an Ed25519 signature covers for the given STH fields. */
+/**
+ * Produces the exact bytes an Ed25519 signature covers for the given STH fields.
+ *
+ * `treeSize` and `timestampMs` are widened to `bigint` for the fixed-width `uint64_be` encoding, so
+ * the layout is byte-identical to `etchlog-core`'s `SthEncoding` for any 64-bit value. They must be
+ * exact integers: the API client (`api/etchlog.ts`) only ever admits safe integers (`< 2^53`), which
+ * is what guarantees the `BigInt(...)` widening below loses nothing.
+ */
 export function bytesToSign(treeSize: number, timestampMs: number, rootHash: Uint8Array): Uint8Array {
   if (rootHash.length !== HASH_LENGTH) {
     throw new Error(`root must be ${HASH_LENGTH} bytes`);

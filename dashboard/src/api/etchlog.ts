@@ -97,10 +97,24 @@ function asObject(v: unknown, ctx: string): Record<string, unknown> {
   return v as Record<string, unknown>;
 }
 
+/**
+ * Reads a JSON **integer** field — a count, leaf index, tree size, or epoch-millis timestamp, each
+ * of which the Etchlog wire encodes as a JSON number whose Java counterpart is a 64-bit `long`. We
+ * require a SAFE integer (`|v| < 2^53`): JavaScript represents integers exactly only below that
+ * bound, so a larger `tree_size`/`leaf_index` would already have been silently rounded by
+ * `JSON.parse` before this validator ever sees it. Feeding such an imprecise coordinate to the
+ * verifier could flip an inclusion/consistency verdict, or shift the reconstructed STH bytes so a
+ * genuine signature no longer matches — so we reject it loudly here rather than coerce it, the same
+ * fail-closed stance {@link EtchlogProtocolError} takes for a malformed shape. Every value that
+ * passes is then promoted to `bigint` for the exact proof/STH arithmetic (see `merkle.ts` and
+ * `sth.ts`), so the whole pipeline is precise for any size this guard admits. A single-sequencer log
+ * cannot approach 2^53 leaves in any realistic deployment; this just makes the boundary explicit and
+ * safe regardless.
+ */
 function num(o: Record<string, unknown>, field: string, ctx: string): number {
   const v = o[field];
-  if (typeof v !== 'number' || !Number.isFinite(v)) {
-    throw new EtchlogProtocolError(`${ctx}.${field}: expected a number`);
+  if (typeof v !== 'number' || !Number.isSafeInteger(v)) {
+    throw new EtchlogProtocolError(`${ctx}.${field}: expected a safe integer (< 2^53)`);
   }
   return v;
 }

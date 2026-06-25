@@ -107,4 +107,17 @@ describe('etchlog API client', () => {
     mockFetch(200, { tree_size: 5, root_hash: 123, timestamp: 1, ed25519_signature: 'AA==' });
     await expect(getSth()).rejects.toBeInstanceOf(EtchlogProtocolError);
   });
+
+  it('rejects a tree_size beyond the safe-integer range instead of verifying imprecisely', async () => {
+    // 2^53 is not a *safe* integer (2^53 + 1 is unrepresentable), so JSON.parse could already have
+    // rounded a true 64-bit tree_size. Reject loudly rather than feed an imprecise size to the
+    // verifier — a silently-rounded coordinate could flip a verdict or break STH signature checks.
+    mockFetch(200, {
+      tree_size: Number.MAX_SAFE_INTEGER + 1,
+      root_hash: b64(0xab),
+      timestamp: 1750000000000,
+      ed25519_signature: bytesToBase64(new Uint8Array(64).fill(7)),
+    });
+    await expect(getSth()).rejects.toBeInstanceOf(EtchlogProtocolError);
+  });
 });
