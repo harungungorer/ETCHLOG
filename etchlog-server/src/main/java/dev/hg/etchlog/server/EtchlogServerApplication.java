@@ -14,6 +14,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class EtchlogServerApplication {
 
     public static void main(String[] args) {
+        // `etchlog --healthcheck` is a short-lived readiness probe for the distroless runtime image
+        // (no shell/curl to probe HTTP). It must run before Spring starts and exit immediately.
+        for (String arg : args) {
+            if ("--healthcheck".equals(arg)) {
+                System.exit(Healthcheck.run());
+            }
+        }
         SpringApplication.run(EtchlogServerApplication.class, args);
     }
 }

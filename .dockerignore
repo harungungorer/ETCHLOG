@@ -1,0 +1,21 @@
+# Build output — rebuilt inside the image; never ship host artifacts.
+**/target/
+dashboard/dist/
+dashboard/node_modules/
+
+# Local state & secrets — must never enter the build context or a layer.
+*.pem
+*.age
+*.env
+.env
+.env.*
+secrets/
+data/
+.docker-data/
+.git/
+.idea/
+*.iml
+
+# Docs and dev-only compose overrides aren't needed to build the binary.
+docs/
+docker-compose.override.yml
