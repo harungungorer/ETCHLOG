@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+# Least privilege by default; the release job widens it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build + full test suite on the JVM (fast feedback, hard correctness gate).
+  #    `mvn verify` runs, in one pass:
+  #      - unit tests
+  #      - jqwik property-based proof invariants (etchlog-core)
+  #      - ArchUnit crypto-core/Spring boundary check
+  #      - Testcontainers integration tests against a real postgres:16
+  #    Testcontainers starts the database against the runner's Docker daemon
+  #    (ubuntu-latest ships one), so no `services:` block is needed.
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build & Test (JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Verify (unit + jqwik + ArchUnit + Testcontainers)
+        run: ./mvnw -B -ntp verify
+
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: "**/target/surefire-reports/*.xml"
+          if-no-files-found: warn
+
+      - name: Upload etchlog-core coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-etchlog-core
+          path: "etchlog-core/target/site/jacoco/**"
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # 2. GraalVM native-image build + smoke test (catches native-only failures
+  #    that JVM tests cannot: missing reflection hints, AOT resource issues).
+  # ---------------------------------------------------------------------------
+  native-image:
+    name: Native image (${{ matrix.target }})
+    needs: build-and-test
+    if: github.event_name == 'push' # main pushes and tags
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            runner: ubuntu-latest
+          # Native arm64 build; uncomment when an arm64 runner is available.
+          # - target: linux-arm64
+          #   runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM (native-image)
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: "true"
+          cache: maven
+
+      - name: Build native image
+        run: ./mvnw -B -ntp -pl etchlog-server -am -Pnative -DskipTests package
+
+      # The native binary defaults to the embedded-SQLite profile, so it boots
+      # standalone with no external database. `--healthcheck` is a *sibling*
+      # probe (it exits before Spring starts and queries the running server's
+      # readiness endpoint), so the smoke test must run the server first, then
+      # poll the probe until ready.
+      - name: Smoke test the native binary
+        run: |
+          BIN=etchlog-server/target/etchlog-server
+          test -x "$BIN" || { echo "native binary missing"; exit 1; }
+          "$BIN" > server.log 2>&1 &
+          SERVER_PID=$!
+          ok=0
+          for i in $(seq 1 30); do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "native server exited prematurely"; break
+            fi
+            if "$BIN" --healthcheck; then
+              echo "native binary starts & self-checks OK"; ok=1; break
+            fi
+            sleep 2
+          done
+          kill "$SERVER_PID" 2>/dev/null || true
+          wait "$SERVER_PID" 2>/dev/null || true
+          if [ "$ok" -ne 1 ]; then
+            echo "::group::server.log"; cat server.log; echo "::endgroup::"
+            echo "native binary failed to become ready"; exit 1
+          fi
+
+      - name: Rename and checksum
+        run: |
+          mkdir -p dist
+          cp etchlog-server/target/etchlog-server "dist/etchlog-${{ matrix.target }}"
+          ( cd dist && sha256sum "etchlog-${{ matrix.target }}" \
+              > "etchlog-${{ matrix.target }}.sha256" )
+
+      - name: Upload native binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: etchlog-${{ matrix.target }}
+          path: dist/*
+
+  # ---------------------------------------------------------------------------
+  # 3. Release: publish binaries + Docker image (tags only, after all gates).
+  #    Uses only the auto-provided GITHUB_TOKEN — the log's Ed25519 signing key
+  #    is NEVER present in CI (it belongs to the operator at deploy time).
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    needs: [build-and-test, native-image]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      packages: write # push the image to GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built native binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: etchlog-*
+          path: dist
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      # The multi-stage Dockerfile compiles the native image internally; see DOCKER_SETUP.md.
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release with binaries + checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/etchlog-*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
