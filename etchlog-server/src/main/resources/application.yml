@@ -25,7 +25,11 @@ spring:
   # DB before upgrading anyway: a process kill mid-rebuild on a non-WAL journal could leave a table
   # mid-swap, recoverable only from that backup. Postgres deployments are unaffected.
   datasource:
-    url: jdbc:sqlite:${ETCHLOG_DB_PATH:./data/etchlog.db}
+    # Default to a file in the working directory (matches the README's ./etchlog.db). SQLite
+    # creates the .db file but NOT a parent directory, so a subdir default (e.g. ./data/...) would
+    # make the single binary crash on first run wherever that dir is absent. Override via
+    # ETCHLOG_DB_PATH (create the parent dir yourself if you point it at a subdirectory).
+    url: jdbc:sqlite:${ETCHLOG_DB_PATH:./etchlog.db}
     driver-class-name: org.sqlite.JDBC
     hikari:
       # SQLite is a single-writer file lock; one pooled connection avoids SQLITE_BUSY contention.

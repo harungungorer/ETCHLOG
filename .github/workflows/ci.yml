@@ -165,7 +165,11 @@ jobs:
         run: |
           BIN=etchlog-server/target/etchlog-server
           test -x "$BIN" || { echo "native binary missing"; exit 1; }
-          "$BIN" > server.log 2>&1 &
+          # The 'demo' profile boots fully standalone: embedded SQLite (./etchlog.db),
+          # the built-in demo API key, and an ephemeral Ed25519 signing key. Without it
+          # the server fail-fasts on missing etchlog.security.api-keys (a deliberate
+          # production safety guard), so a bare invocation can never become ready.
+          "$BIN" --spring.profiles.active=demo > server.log 2>&1 &
           SERVER_PID=$!
           ok=0
           for i in $(seq 1 30); do

@@ -146,12 +146,12 @@ This brings up PostgreSQL + the Etchlog server. An ephemeral demo Ed25519 signin
 ```bash
 # Download the single self-contained binary for your platform from Releases
 chmod +x etchlog
-# Run with the embedded SQLite profile — zero external dependencies
-./etchlog --spring.profiles.active=sqlite
+# Run with the demo profile — embedded SQLite + a built-in demo key, zero external dependencies
+./etchlog --spring.profiles.active=demo
 # Startup is ~0.8 s; the log lives in ./etchlog.db
 ```
 
-> 💡 **Tip** — The SQLite profile is perfect for demos, laptops, and air-gapped evaluation. Use the PostgreSQL profile for anything you intend to keep.
+> 💡 **Tip** — The `demo` profile (embedded SQLite, built-in demo key, ephemeral signing key) is perfect for demos, laptops, and air-gapped evaluation. For anything you intend to keep, run the `postgres` profile and supply your own `etchlog.security.api-keys` and `etchlog.signing.*` keypair.
 
 ### Append and verify your first record
 
