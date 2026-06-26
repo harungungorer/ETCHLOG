@@ -84,6 +84,16 @@ public class EtchlogNativeHints {
                                 MemberCategory.INVOKE_PUBLIC_METHODS);
             }
 
+            // SecretFileEnvironmentPostProcessor is registered in META-INF/spring.factories
+            // and instantiated reflectively by SpringFactoriesLoader *before* the AOT
+            // application context initializes. Spring Boot's AOT processing normally
+            // registers spring.factories entries, but pin its no-arg constructor defensively
+            // so resolving *_FILE secrets cannot regress in the native image.
+            hints.reflection()
+                    .registerType(
+                            SecretFileEnvironmentPostProcessor.class,
+                            MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+
             // Flyway loads its plugins (including every ConfigurationExtension) via
             // ServiceLoader on the Plugin SPI, then reflectively invokes their getters/setters to
             // bind and copy flyway.* configuration (e.g.

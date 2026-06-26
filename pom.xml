@@ -37,7 +37,6 @@
         <picocli.version>4.7.6</picocli.version>
         <springdoc.version>2.7.0</springdoc.version>
         <sqlite-jdbc.version>3.47.1.0</sqlite-jdbc.version>
-        <bouncycastle.version>1.79</bouncycastle.version>
         <spotless.version>2.43.0</spotless.version>
         <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
         <!-- JaCoCo: coverage agent/report; gates etchlog-core at >90% line+branch.
@@ -100,13 +99,9 @@
                 <artifactId>sqlite-jdbc</artifactId>
                 <version>${sqlite-jdbc.version}</version>
             </dependency>
-
-            <!-- BouncyCastle fallback for Ed25519 (JDK 21 EdDSA is primary). -->
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcprov-jdk18on</artifactId>
-                <version>${bouncycastle.version}</version>
-            </dependency>
+            <!-- Ed25519 signing/verification uses the JDK 21 built-in EdDSA (SunEC)
+                 provider only. No BouncyCastle: etchlog-core stays JDK-only and the
+                 ArchUnit boundary (CryptoCorePurityTest) forbids org.bouncycastle. -->
         </dependencies>
     </dependencyManagement>
 

@@ -19,6 +19,10 @@ env:
   JAVA_VERSION: "21"
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
+# Third-party actions are pinned to a commit SHA (the version tag follows in a
+# comment) so a moved tag cannot silently alter the build — the same supply-chain
+# rigor the project applies to npm/Maven pins. .github/dependabot.yml keeps the
+# pins current.
 jobs:
   # ---------------------------------------------------------------------------
   # 1. Build + full test suite on the JVM (fast feedback, hard correctness gate).
@@ -26,7 +30,7 @@ jobs:
   #      - unit tests
   #      - jqwik property-based proof invariants (etchlog-core)
   #      - ArchUnit crypto-core/Spring boundary check
-  #      - Testcontainers integration tests against a real postgres:16
+  #      - Testcontainers integration tests against a real postgres:16 (failsafe)
   #    Testcontainers starts the database against the runner's Docker daemon
   #    (ubuntu-latest ships one), so no `services:` block is needed.
   # ---------------------------------------------------------------------------
@@ -34,10 +38,10 @@ jobs:
     name: Build & Test (JVM)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -48,28 +52,65 @@ jobs:
 
       - name: Publish test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-reports
-          path: "**/target/surefire-reports/*.xml"
+          # Both surefire (unit/jqwik/ArchUnit) and failsafe (Testcontainers *IT)
+          # reports — otherwise IT failures show no detail in the Actions UI.
+          path: |
+            **/target/surefire-reports/*.xml
+            **/target/failsafe-reports/*.xml
           if-no-files-found: warn
 
       - name: Upload etchlog-core coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-etchlog-core
           path: "etchlog-core/target/site/jacoco/**"
           if-no-files-found: warn
 
   # ---------------------------------------------------------------------------
-  # 2. GraalVM native-image build + smoke test (catches native-only failures
+  # 2. Dashboard: typecheck, the in-browser TS verifier parity tests, and build.
+  #    The TS verifier must agree with etchlog-core byte-for-byte on shared
+  #    vectors — that parity IS the zero-trust guarantee, so it's a correctness
+  #    gate, not just a lint. Runs on every push & PR (independent of the JVM job).
+  # ---------------------------------------------------------------------------
+  dashboard:
+    name: Dashboard (TS verifier)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      # npm ci installs exactly the committed lockfile (reproducible, no drift).
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check + TS verifier parity tests
+        run: npm test
+
+      - name: Build dashboard
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # 3. GraalVM native-image build + smoke test (catches native-only failures
   #    that JVM tests cannot: missing reflection hints, AOT resource issues).
+  #    Runs on PRs too, so an AOT/reflection regression is caught before merge
+  #    rather than landing on main. The concurrency block cancels superseded runs.
   # ---------------------------------------------------------------------------
   native-image:
     name: Native image (${{ matrix.target }})
     needs: build-and-test
-    if: github.event_name == 'push' # main pushes and tags
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -77,14 +118,15 @@ jobs:
         include:
           - target: linux-amd64
             runner: ubuntu-latest
-          # Native arm64 build; uncomment when an arm64 runner is available.
+          # Native arm64 build is deferred post-v1 (no arm64 runner wired yet);
+          # only linux-amd64 binaries ship today. Tracked for a later milestone.
           # - target: linux-arm64
           #   runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up GraalVM (native-image)
-        uses: graalvm/setup-graalvm@v1
+        uses: graalvm/setup-graalvm@6f3fa030c4b8f77c1f554a860f593a654538fa38 # v1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: graalvm-community
@@ -131,7 +173,7 @@ jobs:
               > "etchlog-${{ matrix.target }}.sha256" )
 
       - name: Upload native binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: etchlog-${{ matrix.target }}
           path: dist/*
@@ -140,6 +182,9 @@ jobs:
   # 3. Release: publish binaries + Docker image (tags only, after all gates).
   #    Uses only the auto-provided GITHUB_TOKEN — the log's Ed25519 signing key
   #    is NEVER present in CI (it belongs to the operator at deploy time).
+  #    Build-provenance attestations are generated for both the binaries and the
+  #    image via keyless OIDC (no long-lived signing secret), giving consumers
+  #    verifiable provenance on top of the SHA-256 checksums.
   # ---------------------------------------------------------------------------
   release:
     name: Release
@@ -149,21 +194,29 @@ jobs:
     permissions:
       contents: write # create the GitHub Release
       packages: write # push the image to GHCR
+      id-token: write # keyless OIDC for build-provenance attestations
+      attestations: write # record the provenance attestations
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # GHCR repository names must be lowercase; github.repository can contain
+      # uppercase (e.g. owner/Etchlog), so normalize it for the image name and
+      # the attestation subject so both reference the exact pushed repository.
+      - name: Compute lowercase image name
+        run: echo "IMAGE_NAME_LC=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
       - name: Download built native binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: etchlog-*
           path: dist
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -171,16 +224,20 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME_LC }}
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
 
-      # The multi-stage Dockerfile compiles the native image internally; see DOCKER_SETUP.md.
+      # The multi-stage Dockerfile compiles the native image internally from the
+      # same source commit (see DOCKER_SETUP.md). This is a reproducible rebuild,
+      # not a copy of the smoke-tested binary from the native-image job — both are
+      # built from identical sources with identical flags.
       - name: Build & push Docker image
-        uses: docker/build-push-action@v6
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: true
@@ -189,11 +246,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Attest Docker image provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-name: ${{ env.IMAGE_NAME_LC }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest release binary provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          # Attest the binaries only, not the .sha256 sidecar files. Add the
+          # arm64 binary here when that target is enabled in the matrix above.
+          subject-path: dist/etchlog-linux-amd64
+
       - name: Create GitHub Release with binaries + checksums
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             dist/etchlog-*
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

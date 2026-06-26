@@ -1,0 +1,38 @@
+version: 2
+# Keeps the supply-chain pins fresh: SHA-pinned GitHub Actions, digest-pinned
+# Docker base images, the Maven reactor, and the dashboard's npm dependencies.
+# Pinning (in ci.yml / Dockerfile / package-lock.json) gives immutability;
+# Dependabot gives a controlled, reviewable path to bump those pins.
+updates:
+  # SHA-pinned third-party actions in .github/workflows/*.yml
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  # Digest-pinned base images in the multi-stage Dockerfile
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+
+  # Maven multi-module reactor (Spring Boot BOM + pinned plugin/lib versions)
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 10
+
+  # Dashboard npm dependencies (exact-pinned; lockfile committed)
+  - package-ecosystem: npm
+    directory: /dashboard
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build

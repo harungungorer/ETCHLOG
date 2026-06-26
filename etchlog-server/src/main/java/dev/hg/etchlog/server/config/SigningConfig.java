@@ -123,11 +123,16 @@ public class SigningConfig {
 
     /** Reads a PEM file and returns the DER bytes between its BEGIN/END armor lines. */
     private static byte[] decodePem(Path pem, String label) {
+        // Exception messages name only the file (pem.getFileName()), never the full
+        // path: an absolute path like /run/secrets/… would leak the deployment's
+        // filesystem layout to anyone with log/stacktrace access. Matches the
+        // file-name-only convention in loadFromPem above.
+        String name = String.valueOf(pem.getFileName());
         String contents;
         try {
             contents = Files.readString(pem);
         } catch (IOException e) {
-            throw new IllegalStateException("Cannot read PEM key file: " + pem, e);
+            throw new IllegalStateException("Cannot read PEM key file: " + name, e);
         }
         String base64 =
                 contents.replace("-----BEGIN " + label + "-----", "")
@@ -135,13 +140,13 @@ public class SigningConfig {
                         .replaceAll("\\s", "");
         if (base64.isEmpty()) {
             throw new IllegalStateException(
-                    "PEM file " + pem + " contains no '" + label + "' block");
+                    "PEM file " + name + " contains no '" + label + "' block");
         }
         try {
             return Base64.getDecoder().decode(base64);
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException(
-                    "PEM file " + pem + " is not valid base64 for label " + label, e);
+                    "PEM file " + name + " is not valid base64 for label " + label, e);
         }
     }
 }

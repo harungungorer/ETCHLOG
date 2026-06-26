@@ -15,9 +15,11 @@
     <description>Pure-Java crypto core: RFC 6962 Merkle tree, inclusion/consistency proofs, Ed25519 STH signing. ZERO Spring dependencies (enforced by ArchUnit).</description>
 
     <!--
-      INVARIANT: this module depends only on the JDK (and optionally BouncyCastle).
+      INVARIANT: this module depends only on the JDK (no third-party runtime deps).
+      Ed25519 uses the JDK's built-in EdDSA (SunEC) provider — no BouncyCastle.
       No Spring, no JPA, no servlet, no web. The CryptoCorePurityTest ArchUnit rule
-      fails the build on any such import. Do not add framework dependencies here.
+      fails the build on any such import (including org.bouncycastle). Do not add
+      framework or third-party crypto dependencies here.
     -->
     <dependencies>
         <!-- Test scope only. -->

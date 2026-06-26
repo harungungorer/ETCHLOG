@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
 # -------- Stage 1: build the GraalVM native image --------
-FROM ghcr.io/graalvm/native-image-community:21 AS build
+# Base images are pinned by digest (the tag follows for readability) so a moved
+# tag cannot change the build/runtime out from under us. Dependabot's docker
+# ecosystem (.github/dependabot.yml) proposes digest bumps.
+FROM ghcr.io/graalvm/native-image-community:21@sha256:f4a7e898503a75b97e9ba21219fcb60819bfecf7e41d0b1ca2778ae3856f64ec AS build
 
 WORKDIR /workspace
 
@@ -31,7 +34,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 RUN cp etchlog-server/target/etchlog-server /workspace/etchlog
 
 # -------- Stage 2: minimal runtime --------
-FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:949e6cfda7141a19179964a7eb60d83c9eb1366c6b2cd36a6fd6f28c6baea8b9 AS runtime
 
 # Distroless 'nonroot' already runs as uid 65532; no shell, no package manager.
 WORKDIR /app
