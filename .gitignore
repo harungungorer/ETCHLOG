@@ -124,6 +124,12 @@ secrets/
 .env.*
 !.env.example
 
+# Never ignore source code. The broad key-material globs above (notably
+# ed25519* and sth-signing*) otherwise swallow source files such as
+# Ed25519SthSigner.java on case-insensitive filesystems (core.ignorecase=true),
+# which silently kept that core class out of every commit and broke CI compile.
+!**/src/**/*.java
+
 # ══════════════════════════════════════════════════════
 # IDE / Editor
 # ══════════════════════════════════════════════════════
