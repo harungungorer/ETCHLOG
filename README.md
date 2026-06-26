@@ -10,7 +10,7 @@
 [![Java 21](https://img.shields.io/badge/Java-21-007396)](#)
 [![Spring Boot 3.x](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)](#)
 
-**Last Updated: 2026-06-21**
+**Last Updated: 2026-06-26**
 
 ---
 
@@ -118,7 +118,7 @@ This is the whole thesis in 10 seconds: the operator changed the database, and t
 | Persistence | Spring Data JPA + Flyway | — |
 | Primary DB | PostgreSQL | 16+ |
 | Embedded DB | SQLite (profile) | 3.x |
-| STH signing | Ed25519 (JDK 21 EdDSA / BouncyCastle) | — |
+| STH signing | Ed25519 (JDK 21 built-in EdDSA / SunEC — no BouncyCastle) | — |
 | Security | Spring Security (API-key) | 6.x |
 | CLI | Picocli | 4.x |
 | Native build | GraalVM Native Image | 21+ |
@@ -139,7 +139,7 @@ docker compose up -d
 # Server on http://localhost:8080, dashboard on http://localhost:5173
 ```
 
-This brings up PostgreSQL + the Etchlog server. A demo Ed25519 key and a demo API key are generated on first boot (printed to the logs — **do not use them in production**).
+This brings up PostgreSQL + the Etchlog server. An ephemeral demo Ed25519 signing key is minted on first boot, and the built-in demo API key `etchlog-demo-key-change-me` is enabled (both gated behind the `demo` profile and printed to the logs with a loud warning — **do not use them in production**).
 
 ### Option B — Native binary
 
@@ -159,21 +159,22 @@ chmod +x etchlog
 # 1. Append a record (write requires an API key)
 curl -sS -X POST http://localhost:8080/api/v1/log/entries \
   -H "Content-Type: application/json" \
-  -d '{"payload":"aGVsbG8gZXRjaGxvZw=="}' \
-  -H "X-API-Key: demo-appender-key"   # base64 payload = "hello etchlog"; placeholder key — gitleaks:allow
-# → { "leafIndex": 0, "leafHash": "...", "sth": { ... } }
+  -d '{"leaf_data":"aGVsbG8gZXRjaGxvZw=="}' \
+  -H "X-Api-Key: etchlog-demo-key-change-me"   # base64 leaf_data = "hello etchlog"; built-in demo key — gitleaks:allow
+# → { "leaf_index": 0, "sth": { "tree_size": 1, "root_hash": "...", "timestamp": ..., "ed25519_signature": "..." } }
 
 # 2. Fetch an inclusion proof (public — no key needed)
-curl -sS "http://localhost:8080/api/v1/log/proofs/inclusion?leafIndex=0&treeSize=1"
+curl -sS "http://localhost:8080/api/v1/log/proofs/inclusion?leaf_index=0&tree_size=1"
+# the leaf hash for verification comes from GET /api/v1/log/entries/0 (leaf_hash)
 
 # 3. Verify it locally with the CLI — trusting only the public key, NOT the server
-etchlog-cli verify-inclusion \
+etchlog verify inclusion \
   --leaf-index 0 \
   --tree-size 1 \
-  --leaf-hash <leafHash> \
-  --root-hash <rootHash> \
+  --leaf-hash <leaf_hash> \
   --audit-path <path.json> \
-  --public-key etchlog-public.pem
+  --sth <sth.json> \
+  --pubkey etchlog-public.pem    # signature-checks the STH's root before trusting it
 # → ✅ INCLUSION PROOF VALID
 ```
 
@@ -300,7 +301,7 @@ cd etchlog
 
 The Etchlog **server** is licensed under **AGPL-3.0**. See [LICENSE](./LICENSE).
 
-> ℹ️ **Open decision** — The reusable `etchlog-spring-boot-starter` may instead ship under **Apache-2.0** to maximize adoption (a client library under AGPL discourages embedding). This is the single open licensing decision.
+> ℹ️ **Starter license** — The reusable `etchlog-spring-boot-starter` ships under **Apache-2.0** (resolved 2026-06-23) to maximize adoption — a client library under AGPL discourages embedding. The server remains AGPL-3.0.
 
 ---
 
