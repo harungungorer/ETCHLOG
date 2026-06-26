@@ -36,8 +36,10 @@ public class TreeNodeEntity {
 
     /**
      * {@code level 0}: {@code leafHash(payload)}; {@code level > 0}: {@code nodeHash(left, right)}.
+     * Exactly 32 bytes, enforced by the constructor and a DB CHECK constraint;
+     * {@code @Column(length=…)} is a no-op for binary columns, so it is omitted.
      */
-    @Column(name = "node_hash", nullable = false, updatable = false, length = 32)
+    @Column(name = "node_hash", nullable = false, updatable = false)
     private byte[] nodeHash;
 
     @Column(name = "created_at", nullable = false, updatable = false)

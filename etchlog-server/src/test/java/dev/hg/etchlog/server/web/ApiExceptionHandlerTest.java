@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,6 +35,10 @@ class ApiExceptionHandlerTest {
     private static final String LEAKY_INTERNAL_MESSAGE =
             "missing materialized node (5, 12) while generating a proof";
 
+    /** A secret-bearing message an unanticipated bug might carry; must never reach the client. */
+    private static final String LEAKY_RUNTIME_MESSAGE =
+            "secret datasource postgres://user:p4ssw0rd@db.internal/etchlog";
+
     @RestController
     static class ThrowingController {
         @GetMapping("/typed/{n}")
@@ -44,6 +49,13 @@ class ApiExceptionHandlerTest {
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException(LEAKY_INTERNAL_MESSAGE);
+        }
+
+        @GetMapping("/explode")
+        String explode() {
+            // Not an IllegalState/IllegalArgument/etc. — only the Exception.class catch-all
+            // matches.
+            throw new RuntimeException(LEAKY_RUNTIME_MESSAGE);
         }
     }
 
@@ -86,5 +98,39 @@ class ApiExceptionHandlerTest {
         // None of the internal coordinates (node level/index, the word "materialized") may surface.
         String body = res.getResponse().getContentAsString();
         assertThat(body).doesNotContain("materialized").doesNotContain("(5, 12)");
+    }
+
+    @Test
+    void unanticipatedExceptionReturnsGeneric500WithNoLeak() throws Exception {
+        // A bare RuntimeException has no specific handler, so the Exception.class catch-all fires.
+        // It must log server-side and return the same fixed, generic 500 — leaking nothing.
+        MvcResult res =
+                mvc.perform(get("/explode"))
+                        .andExpect(status().isInternalServerError())
+                        .andExpect(jsonPath("$.status").value(500))
+                        .andExpect(
+                                jsonPath("$.detail")
+                                        .value(
+                                                "The request could not be completed due to an"
+                                                        + " internal error."))
+                        .andReturn();
+
+        // The exception message (host, credentials, scheme) must not surface. Note "://" alone is
+        // not checked — the RFC 9457 `type` field is legitimately a URI — so assert the secret
+        // tokens themselves.
+        String body = res.getResponse().getContentAsString();
+        assertThat(body)
+                .doesNotContain("secret")
+                .doesNotContain("p4ssw0rd")
+                .doesNotContain("postgres");
+    }
+
+    @Test
+    void frameworkMethodNotSupportedIsPreservedAs405NotMaskedAs500() throws Exception {
+        // POST to a GET-only mapping raises HttpRequestMethodNotSupportedException, which
+        // implements
+        // ErrorResponse. The catch-all must pass it through with its real 405 status rather than
+        // collapsing every framework exception into a generic 500.
+        mvc.perform(post("/typed/5")).andExpect(status().isMethodNotAllowed());
     }
 }

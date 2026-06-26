@@ -10,7 +10,9 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -185,6 +187,43 @@ public class ApiExceptionHandler {
                 "Internal Server Error",
                 "The request could not be completed due to an internal error.",
                 request);
+    }
+
+    /**
+     * Final safety net for any exception without a more specific handler above. Spring routes an
+     * exception to the closest-matching {@code @ExceptionHandler}, so this fires only for the
+     * residue: framework MVC exceptions (405, 415, 406, unknown route, …) and genuinely
+     * unanticipated failures.
+     *
+     * <p>Framework MVC exceptions implement {@link ErrorResponse} and already carry the correct
+     * status, an {@code application/problem+json} body, and any relevant headers (e.g. {@code
+     * Allow} on a 405), so they are passed through untouched rather than masked as a 500 —
+     * preserving the shape the {@code spring.mvc.problemdetails} advice used to give them before
+     * this catch-all existed. Everything else is a bug, not bad input: the real cause is logged
+     * server-side at {@code ERROR} and the client gets a fixed, generic 500 that leaks no internal
+     * detail.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Object> handleUnexpected(Exception ex, HttpServletRequest request) {
+        if (ex instanceof ErrorResponse errorResponse) {
+            return new ResponseEntity<>(
+                    errorResponse.getBody(),
+                    errorResponse.getHeaders(),
+                    errorResponse.getStatusCode());
+        }
+        log.error(
+                "Unhandled exception serving {} {}",
+                request.getMethod(),
+                request.getRequestURI(),
+                ex);
+        ProblemDetail body =
+                problem(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "internal-error",
+                        "Internal Server Error",
+                        "The request could not be completed due to an internal error.",
+                        request);
+        return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     private static ProblemDetail problem(

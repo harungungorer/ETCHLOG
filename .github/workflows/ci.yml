@@ -50,6 +50,25 @@ jobs:
       - name: Verify (unit + jqwik + ArchUnit + Testcontainers)
         run: ./mvnw -B -ntp verify
 
+      # The dashboard's TS-verifier parity test runs against a committed fixture
+      # (dashboard/src/verifier/__fixtures__/core-vectors.json) generated from etchlog-core by
+      # CoreVectorGenerator. That fixture is excluded from surefire by name, so if the core hashing /
+      # proof / STH encoding ever changes without regenerating it, the parity test would silently
+      # pass against stale vectors — a false green on the byte-for-byte zero-trust guarantee.
+      # Regenerate here and fail if it drifts from what's committed.
+      - name: Check cross-impl test vectors are up to date
+        run: |
+          ./mvnw -q -B -ntp -pl etchlog-core test \
+            -Dtest=CoreVectorGenerator -DfailIfNoTests=false
+          if ! git diff --quiet -- dashboard/src/verifier/__fixtures__/core-vectors.json; then
+            echo "::error::core-vectors.json is stale. Regenerate it with:"
+            echo "  ./mvnw -q -pl etchlog-core test -Dtest=CoreVectorGenerator -DfailIfNoTests=false"
+            echo "and commit the result."
+            git --no-pager diff -- dashboard/src/verifier/__fixtures__/core-vectors.json
+            exit 1
+          fi
+          echo "core-vectors.json is up to date with etchlog-core."
+
       - name: Publish test report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

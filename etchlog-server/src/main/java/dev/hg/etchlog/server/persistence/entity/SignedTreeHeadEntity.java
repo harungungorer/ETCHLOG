@@ -27,14 +27,16 @@ public class SignedTreeHeadEntity {
     @Column(name = "tree_size", nullable = false, updatable = false)
     private Long treeSize;
 
-    @Column(name = "root_hash", nullable = false, updatable = false, length = 32)
+    // Exactly 32 bytes (constructor + DB CHECK). length=… is a no-op on binary columns; omitted.
+    @Column(name = "root_hash", nullable = false, updatable = false)
     private byte[] rootHash;
 
     /** Cryptographic STH timestamp (signed) — distinct from the operational {@code created_at}. */
     @Column(name = "timestamp", nullable = false, updatable = false)
     private Instant timestamp;
 
-    @Column(name = "ed25519_signature", nullable = false, updatable = false, length = 64)
+    // Exactly 64 bytes (constructor + DB CHECK). length=… is a no-op on binary columns; omitted.
+    @Column(name = "ed25519_signature", nullable = false, updatable = false)
     private byte[] ed25519Signature;
 
     @Column(name = "created_at", nullable = false, updatable = false)

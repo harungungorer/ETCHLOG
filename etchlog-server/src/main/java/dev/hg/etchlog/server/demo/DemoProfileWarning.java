@@ -44,7 +44,8 @@ public class DemoProfileWarning {
                 *      POST /api/v1/_demo/tamper/{index}                             *
                 *  is mounted. It rewrites committed log records directly in the     *
                 *  database to demonstrate tamper-evidence. Anyone who can reach it  *
-                *  can silently corrupt your log.                                    *
+                *  can silently corrupt your log. It is also listed and clickable    *
+                *  in the public Swagger UI (/swagger-ui.html) while demo is active. *
                 *                                                                    *
                 *  Run WITHOUT the 'demo' profile for any non-local deployment.      *
                 ************************************************************************""");

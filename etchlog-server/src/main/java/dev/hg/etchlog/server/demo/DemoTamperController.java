@@ -26,7 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
         description =
                 "DEV/DEMO ONLY. Rewrites a stored leaf directly in the database to demonstrate"
                         + " tamper detection. Disabled unless the server runs with the demo"
-                        + " profile.")
+                        + " profile. While that profile is active this UNAUTHENTICATED endpoint is"
+                        + " also listed and clickable in the public Swagger UI — never run the demo"
+                        + " profile on a reachable deployment.")
 public class DemoTamperController {
 
     private final DemoTamperService tamperService;

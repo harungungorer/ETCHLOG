@@ -25,8 +25,12 @@ public class LeafEntity {
     @Column(name = "leaf_index", nullable = false, updatable = false)
     private Long leafIndex;
 
-    /** RFC 6962 leaf hash: {@code SHA-256(0x00 || payload)}, exactly 32 bytes. */
-    @Column(name = "leaf_hash", nullable = false, updatable = false, length = 32)
+    /**
+     * RFC 6962 leaf hash: {@code SHA-256(0x00 || payload)}, exactly 32 bytes. The fixed length is
+     * enforced by the constructor and a DB CHECK constraint — {@code @Column(length=…)} is a no-op
+     * for binary (BYTEA/BLOB) columns, so it is deliberately omitted here.
+     */
+    @Column(name = "leaf_hash", nullable = false, updatable = false)
     private byte[] leafHash;
 
     /** The raw record, or {@code null} when only a precomputed leaf hash was submitted. */

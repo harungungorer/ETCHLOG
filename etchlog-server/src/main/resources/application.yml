@@ -18,6 +18,12 @@ spring:
   # Default profile: embedded SQLite — the single-binary / demo footprint that boots with no
   # external database. Production self-hosting runs with `--spring.profiles.active=postgres`
   # (see application-postgres.yml), whose MVCC concurrency matters for the public read/proof path.
+  #
+  # Operational note: some SQLite schema migrations rebuild a table in place (CREATE-copy-DROP-RENAME
+  # — SQLite cannot ALTER TABLE ... ADD CONSTRAINT; see db/migration/sqlite/V6). Flyway runs each
+  # migration in a transaction, so it is atomic under normal operation, but take a file copy of the
+  # DB before upgrading anyway: a process kill mid-rebuild on a non-WAL journal could leave a table
+  # mid-swap, recoverable only from that backup. Postgres deployments are unaffected.
   datasource:
     url: jdbc:sqlite:${ETCHLOG_DB_PATH:./data/etchlog.db}
     driver-class-name: org.sqlite.JDBC
@@ -42,6 +48,19 @@ spring:
     locations: classpath:db/migration/{vendor}
     baseline-on-migrate: false
     validate-on-migrate: true
+
+# Defense-in-depth for the BasicErrorController `/error` fallback — the dispatch used when an
+# exception escapes the @ExceptionHandler chain entirely (e.g. thrown in a servlet filter before
+# the DispatcherServlet). Application exceptions are already rendered as fixed problem+json by
+# ApiExceptionHandler (including its Exception.class catch-all); these are the Spring Boot 3
+# defaults, pinned explicitly so a future default change can never surface an exception message,
+# stack trace, or binding detail to a client.
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
 
 # Application (operational) log levels. These govern the SLF4J/Logback OPERATIONAL log — mutable
 # telemetry about service health — which is NOT the cryptographic transparency log. The integrity

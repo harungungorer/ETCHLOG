@@ -215,6 +215,23 @@ class ProofGuardTest {
     }
 
     @Test
+    void consistencyVerifierRejectsTruncatedProof() {
+        // Dropping the last node leaves the walk short of the root (final sn != 0), so the
+        // terminal sn == 0 check rejects it structurally rather than relying on the root compare.
+        // Exercise a power-of-two seed (m=4) and a non-power-of-two seed (m=3) into n=8.
+        List<byte[]> leaves = leaves(8);
+        for (int m : new int[] {3, 4}) {
+            List<byte[]> full = ConsistencyProof.generate(leaves, m, 8);
+            List<byte[]> truncated = new ArrayList<>(full.subList(0, full.size() - 1));
+            assertThat(
+                            ConsistencyVerifier.verify(
+                                    m, 8, root(leaves, m), root(leaves, 8), truncated))
+                    .as("truncated consistency proof m=%d -> 8 must be rejected", m)
+                    .isFalse();
+        }
+    }
+
+    @Test
     void consistencyVerifierRejectsMismatchedRoots() {
         List<byte[]> leaves = leaves(5);
         byte[] oldRoot = root(leaves, 3);

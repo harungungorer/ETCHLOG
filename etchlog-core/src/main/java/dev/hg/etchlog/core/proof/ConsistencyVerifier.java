@@ -76,8 +76,14 @@ public final class ConsistencyVerifier {
             sn >>= 1;
         }
 
-        // Both reconstructed roots must match their signed counterparts. A forged or
-        // truncated proof cannot reproduce both signed roots without a hash collision.
-        return MessageDigest.isEqual(node1, oldRoot) && MessageDigest.isEqual(node2, newRoot);
+        // The walk must have climbed to the root: sn == 0 means the proof had exactly the right
+        // length. This mirrors InclusionVerifier's terminal check and structurally rejects a
+        // too-short proof whose partial subtree roots would otherwise have to be defeated by the
+        // hash comparison alone. (A too-long proof is already caught by the `sn == 0` guard inside
+        // the loop.) Both reconstructed roots must then match their signed counterparts — a forged
+        // or truncated proof cannot reproduce both signed roots without a hash collision.
+        return sn == 0
+                && MessageDigest.isEqual(node1, oldRoot)
+                && MessageDigest.isEqual(node2, newRoot);
     }
 }

@@ -27,8 +27,12 @@ public class ApiKeyEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    /** {@code SHA-256} hash of the API key; never the plaintext. */
-    @Column(name = "key_hash", nullable = false, updatable = false, length = 32)
+    /**
+     * {@code SHA-256} hash of the API key; never the plaintext. Exactly 32 bytes, enforced by the
+     * constructor and a DB CHECK constraint; {@code @Column(length=…)} is a no-op for binary
+     * columns, so it is omitted (unlike {@code label} below, a VARCHAR where length applies).
+     */
+    @Column(name = "key_hash", nullable = false, updatable = false)
     private byte[] keyHash;
 
     /** Operator-assigned, set once at issuance; {@code updatable = false} keeps it immutable. */
