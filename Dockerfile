@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 RUN cp etchlog-server/target/etchlog-server /workspace/etchlog
 
 # -------- Stage 2: minimal runtime --------
-FROM gcr.io/distroless/cc-debian12:nonroot@sha256:949e6cfda7141a19179964a7eb60d83c9eb1366c6b2cd36a6fd6f28c6baea8b9 AS runtime
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:b0ae8e989418b458e0f25489bc3be523718938a2b70864cc0f6a00af1ddbd985 AS runtime
 
 # Distroless 'nonroot' already runs as uid 65532; no shell, no package manager.
 WORKDIR /app
