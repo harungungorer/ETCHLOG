@@ -157,8 +157,8 @@ public class ApiExceptionHandler {
 
     /**
      * A proof was requested against a tree size the log has not yet reached. The message is echoed
-     * verbatim under the {@link dev.hg.etchlog.server.log.ClientSafeMessage} contract: it names only
-     * the client-supplied requested size, never the current log size.
+     * verbatim under the {@link dev.hg.etchlog.server.log.ClientSafeMessage} contract: it names
+     * only the client-supplied requested size, never the current log size.
      */
     @ExceptionHandler(ProofNotAvailableException.class)
     public ProblemDetail handleProofNotAvailable(

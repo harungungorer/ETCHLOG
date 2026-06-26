@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Pins the {@link ClientSafeMessage} allow-list: every exception whose message {@link
  * ApiExceptionHandler} forwards verbatim into the problem {@code detail} must carry the marker. If
- * someone adds a new verbatim-echoed type or drops the marker from an existing one, this test fails,
- * keeping the set of client-visible error messages a curated, reviewed contract rather than letting
- * it drift per throw site.
+ * someone adds a new verbatim-echoed type or drops the marker from an existing one, this test
+ * fails, keeping the set of client-visible error messages a curated, reviewed contract rather than
+ * letting it drift per throw site.
  */
 class ClientSafeMessageContractTest {
 
