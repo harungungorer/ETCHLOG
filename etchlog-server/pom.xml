@@ -7,7 +7,7 @@
     <parent>
         <groupId>dev.hg.etchlog</groupId>
         <artifactId>etchlog-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
 
     <artifactId>etchlog-server</artifactId>
@@ -134,8 +134,8 @@
                          produces a self-executing fat jar.
 
                          The `exec` classifier keeps the plain thin jar as the module's MAIN
-                         artifact (…-0.1.0-SNAPSHOT.jar) and emits the runnable fat jar alongside it
-                         (…-0.1.0-SNAPSHOT-exec.jar). Without a classifier, repackage would replace
+                         artifact (…-<version>.jar) and emits the runnable fat jar alongside it
+                         (…-<version>-exec.jar). Without a classifier, repackage would replace
                          the main artifact with the fat jar, and the failsafe integration tests —
                          which run after `package` and resolve the project artifact — would no
                          longer find the application classes (they live under BOOT-INF/classes). -->
