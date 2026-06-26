@@ -28,7 +28,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Dependency versions not governed by the Spring Boot BOM. -->
-        <spring-boot.version>3.4.1</spring-boot.version>
+        <spring-boot.version>4.1.0</spring-boot.version>
         <!-- GraalVM native-build-tools: the version paired with Spring Boot 3.4.1's
              native support (matches what spring-boot-starter-parent would inherit). -->
         <native-buildtools.version>0.10.4</native-buildtools.version>
