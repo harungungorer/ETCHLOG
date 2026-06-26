@@ -41,7 +41,7 @@
         <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
         <!-- JaCoCo: coverage agent/report; gates etchlog-core at >90% line+branch.
              0.8.12 is the first release with full Java 21 class-file support. -->
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
 
     <dependencyManagement>
