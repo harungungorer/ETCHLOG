@@ -125,12 +125,29 @@ class ProofAndSthControllerTest {
         assertThat(SthVerifier.verify(logPublicKey, N, sth.get("timestamp").asLong(), sthRoot, sig))
                 .isTrue();
 
-        // Error behaviours (current size is N here).
-        mvc.perform(
-                        get("/api/v1/log/proofs/inclusion")
-                                .param("leaf_index", "0")
-                                .param("tree_size", Integer.toString(N + 1)))
-                .andExpect(status().isNotFound()); // tree_size exceeds current log
+        // Error behaviours (current size is N here). A proof request beyond the current size is a
+        // 404 whose detail names only the client-supplied requested size — it must never disclose
+        // the current log size N, or a 404 probe could read the exact tree size out of the body.
+        String inclusion404 =
+                mvc.perform(
+                                get("/api/v1/log/proofs/inclusion")
+                                        .param("leaf_index", "0")
+                                        .param("tree_size", Integer.toString(N + 1)))
+                        .andExpect(status().isNotFound())
+                        .andExpect(
+                                jsonPath("$.detail")
+                                        .value(
+                                                "no proof is available for tree_size "
+                                                        + (N + 1)
+                                                        + "; it exceeds the current size of the"
+                                                        + " log"))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(json.readTree(inclusion404).get("detail").asText())
+                .as("inclusion 404 detail must not leak the current log size")
+                .doesNotContain(Integer.toString(N));
+
         mvc.perform(
                         get("/api/v1/log/proofs/inclusion")
                                 .param("leaf_index", Integer.toString(N))
@@ -138,11 +155,27 @@ class ProofAndSthControllerTest {
                 .andExpect(status().isBadRequest()); // leaf_index >= tree_size
         mvc.perform(get("/api/v1/log/proofs/inclusion").param("leaf_index", "0"))
                 .andExpect(status().isBadRequest()); // missing tree_size
-        mvc.perform(
-                        get("/api/v1/log/proofs/consistency")
-                                .param("first", "1")
-                                .param("second", Integer.toString(N + 1)))
-                .andExpect(status().isNotFound()); // second exceeds current log
+
+        String consistency404 =
+                mvc.perform(
+                                get("/api/v1/log/proofs/consistency")
+                                        .param("first", "1")
+                                        .param("second", Integer.toString(N + 1)))
+                        .andExpect(status().isNotFound())
+                        .andExpect(
+                                jsonPath("$.detail")
+                                        .value(
+                                                "no proof is available for second="
+                                                        + (N + 1)
+                                                        + "; it exceeds the current size of the"
+                                                        + " log"))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(json.readTree(consistency404).get("detail").asText())
+                .as("consistency 404 detail must not leak the current log size")
+                .doesNotContain(Integer.toString(N));
+
         mvc.perform(get("/api/v1/log/proofs/consistency").param("first", "5").param("second", "3"))
                 .andExpect(status().isBadRequest()); // first > second
 

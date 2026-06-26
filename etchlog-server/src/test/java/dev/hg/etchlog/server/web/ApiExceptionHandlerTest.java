@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.hg.etchlog.server.log.ProofNotAvailableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -56,6 +57,19 @@ class ApiExceptionHandlerTest {
             // Not an IllegalState/IllegalArgument/etc. — only the Exception.class catch-all
             // matches.
             throw new RuntimeException(LEAKY_RUNTIME_MESSAGE);
+        }
+
+        @GetMapping("/proofgone")
+        String proofGone() {
+            // A ClientSafeMessage 404: its message names only the client-supplied size.
+            throw new ProofNotAvailableException(
+                    "no proof is available for tree_size 9; it exceeds the current size of the log");
+        }
+
+        @GetMapping("/leafgone")
+        String leafGone() {
+            // A ClientSafeMessage 404: its message echoes only the client-supplied index.
+            throw new LeafNotFoundException("No leaf exists at index 9999");
         }
     }
 
@@ -123,6 +137,30 @@ class ApiExceptionHandlerTest {
                 .doesNotContain("secret")
                 .doesNotContain("p4ssw0rd")
                 .doesNotContain("postgres");
+    }
+
+    @Test
+    void proofNotAvailableReturns404EchoingTheClientSafeMessage() throws Exception {
+        // ProofNotAvailableException carries the ClientSafeMessage contract, so the handler echoes
+        // its message verbatim as the 404 detail — and that message names only the client-supplied
+        // size, never the current log size.
+        mvc.perform(get("/proofgone"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value(
+                                        "no proof is available for tree_size 9; it exceeds the"
+                                                + " current size of the log"));
+    }
+
+    @Test
+    void leafNotFoundReturns404EchoingTheClientSafeMessage() throws Exception {
+        // LeafNotFoundException also carries ClientSafeMessage; its client-supplied index surfaces.
+        mvc.perform(get("/leafgone"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("No leaf exists at index 9999"));
     }
 
     @Test

@@ -15,9 +15,10 @@ package dev.hg.etchlog.server.log;
  *
  * <p>Extends {@link IllegalArgumentException} so existing {@code catch} chains and the validation
  * contract continue to treat it as an illegal argument; it lives beside the other request-mapped
- * log exceptions ({@link DuplicateLeafException}, {@link ProofNotAvailableException}).
+ * log exceptions ({@link DuplicateLeafException}, {@link ProofNotAvailableException}). It carries
+ * the {@link ClientSafeMessage} marker that authorizes the handler to echo its message verbatim.
  */
-public class InvalidRequestException extends IllegalArgumentException {
+public class InvalidRequestException extends IllegalArgumentException implements ClientSafeMessage {
 
     public InvalidRequestException(String message) {
         super(message);

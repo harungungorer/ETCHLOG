@@ -106,7 +106,10 @@ public class ApiExceptionHandler {
     }
 
     /**
-     * A leaf requested by index or hash was not found in the log.
+     * A leaf requested by index or hash was not found in the log. The message is echoed verbatim
+     * because {@link LeafNotFoundException} carries the {@link
+     * dev.hg.etchlog.server.log.ClientSafeMessage} contract: it is built from client-supplied input
+     * only.
      *
      * @see LeafNotFoundException
      */
@@ -152,7 +155,11 @@ public class ApiExceptionHandler {
                 request);
     }
 
-    /** A proof was requested against a tree size the log has not yet reached. */
+    /**
+     * A proof was requested against a tree size the log has not yet reached. The message is echoed
+     * verbatim under the {@link dev.hg.etchlog.server.log.ClientSafeMessage} contract: it names only
+     * the client-supplied requested size, never the current log size.
+     */
     @ExceptionHandler(ProofNotAvailableException.class)
     public ProblemDetail handleProofNotAvailable(
             ProofNotAvailableException ex, HttpServletRequest request) {

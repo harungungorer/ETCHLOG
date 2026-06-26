@@ -170,8 +170,14 @@ public class LogService {
                     }
                     long size = leaves.count();
                     if (treeSize > size) {
+                        // Echo only the client-supplied tree_size, never the current log size:
+                        // surfacing the exact size here would let a 404 probe read it out of the
+                        // error body. The size is public via /sth, but it is not this endpoint's to
+                        // disclose. See ClientSafeMessage.
                         throw new ProofNotAvailableException(
-                                "tree_size " + treeSize + " exceeds the current log size " + size);
+                                "no proof is available for tree_size "
+                                        + treeSize
+                                        + "; it exceeds the current size of the log");
                     }
                     return MaterializedProofGenerator.inclusionPath(
                             nodeSource(), leafIndex, treeSize);
@@ -200,8 +206,12 @@ public class LogService {
                     }
                     long size = leaves.count();
                     if (second > size) {
+                        // Echo only the client-supplied second; never the current log size (see the
+                        // inclusion path above and ClientSafeMessage).
                         throw new ProofNotAvailableException(
-                                "second " + second + " exceeds the current log size " + size);
+                                "no proof is available for second="
+                                        + second
+                                        + "; it exceeds the current size of the log");
                     }
                     if (first == 0 || first == second) {
                         return List.of();
