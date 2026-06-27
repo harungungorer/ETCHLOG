@@ -9,7 +9,7 @@
 # architecture-specific one. An arm64-only digest builds fine on Apple Silicon
 # but fails the amd64 CI runner with "exec format error". The digest below is the
 # :21 index (linux/amd64 + linux/arm64); buildx selects the build platform's variant.
-FROM ghcr.io/graalvm/native-image-community:21@sha256:faed0fd6809b138254bdd6c7046e56894f4d9566ecbc7b0952aab43e65e16e0e AS build
+FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e05f064d7a6aaf36b726538296c54949bd4a3c0 AS build
 
 WORKDIR /workspace
 
