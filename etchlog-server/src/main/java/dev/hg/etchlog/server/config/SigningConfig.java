@@ -93,10 +93,14 @@ public class SigningConfig {
                     etchlog.signing.private-key-path configured).
                     This is for DEMO ONLY: a fresh key is minted on every restart, so STHs \
                     signed now will NOT verify after a restart.
-                    Configure a persistent keypair before production use. Current public key (SPKI, base64):
+                    Configure a persistent keypair before production use.
+                    Current public key (SPKI, base64):
+                      {}
+                    Public key fingerprint (SHA-256 of DER):
                       {}
                     ════════════════════════════════════════════════════════════════════""",
-                    pubB64);
+                    pubB64,
+                    SigningKeyFingerprint.of(kp.getPublic()));
             return new LogSigningKey(kp.getPrivate(), kp.getPublic());
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Ed25519 must be available on the JDK", e);
@@ -114,7 +118,10 @@ public class SigningConfig {
             // Log only the file name, never the full path: the key bytes are already protected, but
             // the absolute path (e.g. /run/secrets/…) would leak the deployment's filesystem layout
             // to anyone with log access. The name alone confirms a key was loaded.
-            log.info("Loaded Ed25519 signing key from {}", privatePem.getFileName());
+            log.info(
+                    "Loaded Ed25519 signing key from {} (public key fingerprint: {})",
+                    privatePem.getFileName(),
+                    SigningKeyFingerprint.of(publicKey));
             return new LogSigningKey(privateKey, publicKey);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Failed to parse Ed25519 key material", e);

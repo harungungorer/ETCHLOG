@@ -108,6 +108,13 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        # A node whose signing key failed to load cannot advance the log and must not receive
+        # append traffic, so the signingKey contributor joins the readiness group alongside the
+        # datasource. (The key always loads at startup or the app fails fast, so this stays UP in
+        # practice — it makes the signing identity visible on /actuator/health/readiness.)
+        readiness:
+          include: readinessState, db, signingKey
       # Expose only the top-level UP/DOWN status to anonymous callers; component details
       # (datasource connectivity, disk space, liveness) are disclosed only to authorized
       # principals so the public health probe never leaks internal infrastructure state.
