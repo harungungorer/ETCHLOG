@@ -23,8 +23,9 @@
 - [The tamper demo](#the-tamper-demo)
 - [Tech Stack](#tech-stack)
 - [5-Minute Quick Start](#5-minute-quick-start)
-  - [Option A — Docker Compose](#option-a--docker-compose)
-  - [Option B — Native binary](#option-b--native-binary)
+  - [Option A — Docker image (pull & run)](#option-a--docker-image-pull--run)
+  - [Option B — Docker Compose](#option-b--docker-compose)
+  - [Option C — Native binary](#option-c--native-binary)
   - [Append and verify your first record](#append-and-verify-your-first-record)
 - [How it works (60 seconds)](#how-it-works-60-seconds)
 - [Project / Module Structure](#project--module-structure)
@@ -130,7 +131,22 @@ This is the whole thesis in 10 seconds: the operator changed the database, and t
 
 ## 5-Minute Quick Start
 
-### Option A — Docker Compose
+### Option A — Docker image (pull & run)
+
+The published image is **multi-arch** (`linux/amd64` + `linux/arm64`), so Docker pulls the right build for your host automatically.
+
+```bash
+docker pull ghcr.io/harungungorer/etchlog:0.1.1          # or :latest
+
+# Run it standalone — embedded SQLite, built-in demo key, ephemeral signing key:
+docker run --rm -p 8080:8080 \
+  ghcr.io/harungungorer/etchlog:0.1.1 --spring.profiles.active=demo
+# Server on http://localhost:8080  (health: /actuator/health · STH: /api/v1/log/sth)
+```
+
+> 💡 **Tip** — Pin a version tag (`:0.1.1`) or the immutable image digest for reproducibility; `:latest` always tracks the newest stable release. The image is published with a keyless **build-provenance attestation** — verify it with `gh attestation verify oci://ghcr.io/harungungorer/etchlog:0.1.1 --owner harungungorer`. For a durable deployment, run the `postgres` profile with your own keys (see Option B).
+
+### Option B — Docker Compose
 
 ```bash
 git clone https://github.com/harungungorer/etchlog.git
@@ -141,7 +157,7 @@ docker compose up -d
 
 This brings up PostgreSQL + the Etchlog server. An ephemeral demo Ed25519 signing key is minted on first boot, and the built-in demo API key `etchlog-demo-key-change-me` is enabled (both gated behind the `demo` profile and printed to the logs with a loud warning — **do not use them in production**).
 
-### Option B — Native binary
+### Option C — Native binary
 
 ```bash
 # Download the single self-contained binary for your platform from Releases
