@@ -39,7 +39,7 @@ services:
           memory: 1g
 
   app:
-    image: ghcr.io/harungungorer/etchlog:${ETCHLOG_TAG:-0.1.0}
+    image: ghcr.io/harungungorer/etchlog:${ETCHLOG_TAG:-0.1.1}
     # For a local source build instead of the published image, uncomment:
     # build:
     #   context: .
