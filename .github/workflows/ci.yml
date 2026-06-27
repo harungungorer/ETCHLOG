@@ -137,10 +137,11 @@ jobs:
         include:
           - target: linux-amd64
             runner: ubuntu-latest
-          # Native arm64 build is deferred post-v1 (no arm64 runner wired yet);
-          # only linux-amd64 binaries ship today. Tracked for a later milestone.
-          # - target: linux-arm64
-          #   runner: ubuntu-24.04-arm
+          # arm64 built natively on GitHub's free arm64 Linux runner (available
+          # since the repo is public). GraalVM native-image does not cross-compile,
+          # so each arch is compiled on its own architecture's runner.
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -202,37 +203,113 @@ jobs:
           path: dist/*
 
   # ---------------------------------------------------------------------------
-  # 3. Release: publish binaries + Docker image (tags only, after all gates).
-  #    Uses only the auto-provided GITHUB_TOKEN — the log's Ed25519 signing key
-  #    is NEVER present in CI (it belongs to the operator at deploy time).
-  #    Build-provenance attestations are generated for both the binaries and the
-  #    image via keyless OIDC (no long-lived signing secret), giving consumers
-  #    verifiable provenance on top of the SHA-256 checksums.
+  # 3a. Docker image (tags only): build & push ONE image per architecture on its
+  #     own native runner, by digest (no tag yet). GraalVM native-image does not
+  #     cross-compile, so amd64 builds on ubuntu-latest and arm64 on the native
+  #     ubuntu-24.04-arm runner. The release job below merges these per-arch
+  #     digests into a single multi-arch manifest.
+  # ---------------------------------------------------------------------------
+  docker-image:
+    name: Docker image (${{ matrix.target }})
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write # push image blobs to GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: amd64
+            runner: ubuntu-latest
+          - target: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # GHCR repository names must be lowercase; github.repository can contain
+      # uppercase (e.g. owner/Etchlog), so normalize it.
+      - name: Compute lowercase image name
+        run: echo "IMAGE_NAME_LC=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # OCI labels (notably org.opencontainers.image.source) are applied per-arch
+      # so the GHCR package links back to this repository.
+      - name: Docker metadata (labels)
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.IMAGE_NAME_LC }}
+
+      # The multi-stage Dockerfile compiles the native image internally from the
+      # same source commit (see DOCKER_SETUP.md) — a reproducible rebuild, on the
+      # runner's native architecture. Push by digest only; the release job tags
+      # the merged manifest. Per-arch gha cache scope avoids cross-arch cache mixups.
+      - name: Build & push image by digest
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.target }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          outputs: type=image,name=${{ env.IMAGE_NAME_LC }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: digest-${{ matrix.target }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # 3b. Release: merge the per-arch image digests into a multi-arch manifest,
+  #     publish the binaries, and attest both (tags only, after all gates).
+  #     Uses only the auto-provided GITHUB_TOKEN — the log's Ed25519 signing key
+  #     is NEVER present in CI (it belongs to the operator at deploy time).
+  #     Build-provenance attestations are generated for both the binaries and the
+  #     image via keyless OIDC (no long-lived signing secret), giving consumers
+  #     verifiable provenance on top of the SHA-256 checksums.
   # ---------------------------------------------------------------------------
   release:
     name: Release
-    needs: [build-and-test, native-image]
+    needs: [build-and-test, native-image, docker-image]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release
-      packages: write # push the image to GHCR
+      packages: write # push the merged manifest to GHCR
       id-token: write # keyless OIDC for build-provenance attestations
       attestations: write # record the provenance attestations
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      # GHCR repository names must be lowercase; github.repository can contain
-      # uppercase (e.g. owner/Etchlog), so normalize it for the image name and
-      # the attestation subject so both reference the exact pushed repository.
       - name: Compute lowercase image name
         run: echo "IMAGE_NAME_LC=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
-      - name: Download built native binaries
+      - name: Download per-arch image digests
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: etchlog-*
-          path: dist
+          path: /tmp/digests
+          pattern: digest-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -263,34 +340,41 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
-      # The multi-stage Dockerfile compiles the native image internally from the
-      # same source commit (see DOCKER_SETUP.md). This is a reproducible rebuild,
-      # not a copy of the smoke-tested binary from the native-image job — both are
-      # built from identical sources with identical flags.
-      - name: Build & push Docker image
-        id: build
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # Merge the per-arch digests (pushed by the docker-image matrix) into a
+      # single multi-arch manifest under the release tags, then read back the
+      # manifest-list digest to attest.
+      - name: Create & push multi-arch manifest
+        id: manifest
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE_NAME_LC}@sha256:%s " *)
+          digest=$(docker buildx imagetools inspect "${IMAGE_NAME_LC}:${{ steps.meta.outputs.version }}" \
+            --format '{{json .Manifest}}' | jq -r '.digest')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: Attest Docker image provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-name: ${{ env.IMAGE_NAME_LC }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
+
+      - name: Download built native binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: etchlog-*
+          path: dist
+          merge-multiple: true
 
       - name: Attest release binary provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
-          # Attest the binaries only, not the .sha256 sidecar files. Add the
-          # arm64 binary here when that target is enabled in the matrix above.
-          subject-path: dist/etchlog-linux-amd64
+          # Attest the binaries only, not the .sha256 sidecar files.
+          subject-path: |
+            dist/etchlog-linux-amd64
+            dist/etchlog-linux-arm64
 
       - name: Create GitHub Release with binaries + checksums
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2

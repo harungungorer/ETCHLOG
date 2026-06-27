@@ -203,6 +203,15 @@
                                 <enabled>true</enabled>
                             </metadataRepository>
                             <requiredVersion>22.3</requiredVersion>
+                            <buildArgs>
+                                <!-- Statically link everything except libc (glibc stays dynamic, present
+                                     in the distroless/cc runtime). Without this the arm64 GraalVM build
+                                     dynamically links libz.so.1, which distroless does not ship, so the
+                                     arm64 image fails at startup with "libz.so.1: cannot open shared
+                                     object file". amd64 already static-linked zlib; this makes both
+                                     arches self-contained and the standalone binaries more portable. -->
+                                <buildArg>-H:+StaticExecutableWithDynamicLibC</buildArg>
+                            </buildArgs>
                         </configuration>
                         <executions>
                             <execution>
