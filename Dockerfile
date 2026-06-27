@@ -4,7 +4,12 @@
 # Base images are pinned by digest (the tag follows for readability) so a moved
 # tag cannot change the build/runtime out from under us. Dependabot's docker
 # ecosystem (.github/dependabot.yml) proposes digest bumps.
-FROM ghcr.io/graalvm/native-image-community:21@sha256:f4a7e898503a75b97e9ba21219fcb60819bfecf7e41d0b1ca2778ae3856f64ec AS build
+#
+# IMPORTANT: pin the multi-arch manifest-list (index) digest, NOT an
+# architecture-specific one. An arm64-only digest builds fine on Apple Silicon
+# but fails the amd64 CI runner with "exec format error". The digest below is the
+# :21 index (linux/amd64 + linux/arm64); buildx selects the build platform's variant.
+FROM ghcr.io/graalvm/native-image-community:21@sha256:faed0fd6809b138254bdd6c7046e56894f4d9566ecbc7b0952aab43e65e16e0e AS build
 
 WORKDIR /workspace
 
