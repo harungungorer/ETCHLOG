@@ -35,7 +35,7 @@
         <jqwik.version>1.9.2</jqwik.version>
         <archunit.version>1.3.0</archunit.version>
         <picocli.version>4.7.6</picocli.version>
-        <springdoc.version>2.7.0</springdoc.version>
+        <springdoc.version>3.0.3</springdoc.version>
         <sqlite-jdbc.version>3.47.1.0</sqlite-jdbc.version>
         <spotless.version>2.43.0</spotless.version>
         <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
