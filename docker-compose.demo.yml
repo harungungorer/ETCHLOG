@@ -1,0 +1,31 @@
+# docker-compose.demo.yml — zero-config DEMO (evaluation only).
+#
+# Runs only the Etchlog server in the `demo` profile: embedded SQLite, the
+# built-in demo API key (etchlog-demo-key-change-me), and an ephemeral Ed25519
+# signing key minted at boot. No PostgreSQL, no secret files — one command:
+#
+#   docker compose -f docker-compose.demo.yml up
+#
+# DO NOT use in production: the signing key is regenerated on every restart (so
+# previously issued STHs stop verifying) and the log lives in an ephemeral
+# container layer. For a durable, verifiable deployment use docker-compose.yml.
+name: etchlog-demo
+
+services:
+  app:
+    image: ghcr.io/harungungorer/etchlog:${ETCHLOG_TAG:-0.1.1}
+    # The entrypoint is the native binary; this arg selects the standalone demo profile.
+    command: ["--spring.profiles.active=demo"]
+    restart: unless-stopped
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      # distroless has no curl; the binary self-checks via its own --healthcheck flag.
+      test: ["CMD", "/app/etchlog", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

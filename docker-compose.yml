@@ -4,6 +4,9 @@
 # is auto-merged on `docker compose up` — copy docker-compose.override.yml.example to start.
 # Run prod explicitly with: docker compose -f docker-compose.yml up -d
 #
+# For a zero-config demo (server only, embedded SQLite, no Postgres or secrets),
+# use the standalone demo file: docker compose -f docker-compose.demo.yml up
+#
 # Secrets are file-mounted, never baked into an image or env. Create them once on the host:
 #   mkdir -p secrets
 #   openssl rand -base64 32 > secrets/db_password.txt

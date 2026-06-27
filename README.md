@@ -148,14 +148,29 @@ docker run --rm -p 8080:8080 \
 
 ### Option B — Docker Compose
 
+**Zero-config demo** (server only, embedded SQLite, built-in demo key, ephemeral signing key):
+
 ```bash
 git clone https://github.com/harungungorer/etchlog.git
 cd etchlog
-docker compose up -d
-# Server on http://localhost:8080, dashboard on http://localhost:5173
+docker compose -f docker-compose.demo.yml up
+# Server on http://localhost:8080  — demo profile, do NOT use in production
 ```
 
-This brings up PostgreSQL + the Etchlog server. An ephemeral demo Ed25519 signing key is minted on first boot, and the built-in demo API key `etchlog-demo-key-change-me` is enabled (both gated behind the `demo` profile and printed to the logs with a loud warning — **do not use them in production**).
+**Durable stack** (app + PostgreSQL). The base `docker-compose.yml` is production-shaped, so you create the secret files first — a DB password and your own Ed25519 signing keypair — then bring it up:
+
+```bash
+mkdir -p secrets
+openssl rand -base64 32 > secrets/db_password.txt
+openssl genpkey -algorithm ed25519 -out secrets/etchlog-signing-key.pem
+openssl pkey -in secrets/etchlog-signing-key.pem -pubout -out secrets/etchlog-signing-pub.pem
+chmod 600 secrets/*
+export ETCHLOG_SECURITY_API_KEYS=your-appender-key   # the key writers send in X-Api-Key
+docker compose -f docker-compose.yml up -d
+# Server on http://127.0.0.1:8080  (Postgres-backed, persistent signing key)
+```
+
+> 💡 **Tip** — The verification dashboard (`dashboard/`) is a separate Vite app, not part of the Compose stack — run it with `cd dashboard && npm run dev` (serves on `:5173`).
 
 ### Option C — Native binary
 
