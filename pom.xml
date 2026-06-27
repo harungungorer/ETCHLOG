@@ -37,7 +37,7 @@
         <picocli.version>4.7.6</picocli.version>
         <springdoc.version>2.7.0</springdoc.version>
         <sqlite-jdbc.version>3.47.1.0</sqlite-jdbc.version>
-        <spotless.version>2.43.0</spotless.version>
+        <spotless.version>3.7.0</spotless.version>
         <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
         <!-- JaCoCo: coverage agent/report; gates etchlog-core at >90% line+branch.
              0.8.12 is the first release with full Java 21 class-file support. -->
