@@ -3,12 +3,12 @@
 > **Etched in — can't be erased.**
 > A self-hostable, single-binary **transparency log**: an append-only, cryptographically verifiable record service built on a Merkle tree.
 
-[![Build](https://img.shields.io/badge/build-passing-brightgreen)](#)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](#)
+[![CI](https://github.com/harungungorer/ETCHLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/harungungorer/ETCHLOG/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage_core-%E2%89%A590%25-brightgreen)](https://github.com/harungungorer/ETCHLOG/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](./LICENSE)
-[![GraalVM Native](https://img.shields.io/badge/GraalVM-native--image-orange)](#)
-[![Java 21](https://img.shields.io/badge/Java-21-007396)](#)
-[![Spring Boot 3.x](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)](#)
+[![GraalVM Native](https://img.shields.io/badge/GraalVM-native--image-orange)](https://www.graalvm.org/)
+[![Java 21](https://img.shields.io/badge/Java-21-007396)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.x](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)](https://spring.io/projects/spring-boot)
 
 **Last Updated: 2026-06-28**
 
@@ -337,3 +337,4 @@ The Etchlog **server** is licensed under **AGPL-3.0**. See [LICENSE](./LICENSE).
 ## Related Documentation
 
 - [LICENSE](./LICENSE) — AGPL-3.0 + the starter-license note
+- [SECURITY.md](./SECURITY.md) — supported versions, private vulnerability reporting, and threat-model scope
