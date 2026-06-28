@@ -29,7 +29,7 @@
   - [Append and verify your first record](#append-and-verify-your-first-record)
 - [How it works (60 seconds)](#how-it-works-60-seconds)
 - [Project / Module Structure](#project--module-structure)
-- [Comparison](#comparison)
+- [Where Etchlog fits](#where-etchlog-fits)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -300,21 +300,13 @@ npm run dev     # Vite dev server on :5173
 
 ---
 
-## Comparison
+## Where Etchlog fits
 
-| | **Etchlog** | Google Trillian | AWS QLDB | Azure SQL Ledger |
-|---|---|---|---|---|
-| Cryptographically verifiable | ✅ (RFC 6962) | ✅ (RFC 6962) | ✅ (Merkle) | ✅ (Merkle) |
-| Self-hostable | ✅ | ✅ | ❌ (managed) | ❌ (managed) |
-| Single binary | ✅ (GraalVM) | ❌ | n/a | n/a |
-| JVM-native / embeddable starter | ✅ | ❌ (Go) | ❌ | ❌ |
-| Status | Active | Active | **Retired 2025-07-31** | Active (cloud-locked) |
-| Scale target | Single node | Massive / tiled | Managed | Managed |
-| Witness / cosigning | ❌ v1 | Ecosystem | n/a | n/a |
+The verifiable-log landscape splits into two camps. On one side, **planet-scale infrastructure** — Google Trillian, Sigstore Rekor — all written in Go, multi-component, built to back things like Certificate Transparency. On the other, **managed-cloud ledgers** — AWS QLDB (now retired) and Azure SQL Ledger (cloud-locked) — verifiable, but only if you stay inside that vendor.
 
-> ⚠️ **Warning** — Etchlog does **not** compete with Trillian on throughput or scale, and this table is not a benchmark. Pick Trillian for planet-scale CT logs; pick Etchlog when you want a correct, auditable, self-hosted verifiable log you can run as one binary.
+Etchlog deliberately sits in neither camp. It's a **single self-hostable binary** you can run, embed in a JVM app via the starter, and audit yourself — implementing the same **RFC 6962** Merkle algorithms as Trillian, but optimised for approachability and zero lock-in rather than throughput.
 
-> ℹ️ **Note** — "Cryptographically verifiable" means each row provides client-checkable proofs. Etchlog and Trillian implement the **RFC 6962** Merkle-tree algorithms specifically; QLDB and Azure SQL Ledger are Merkle-/hash-chain-verifiable but do not implement RFC 6962.
+> ℹ️ **Note** — This is **not** a Trillian competitor. Trillian is the right tool for planet-scale, billion-entry, multi-sequencer logs. Etchlog is the right tool when you want a correct, auditable verifiable log you can stand up as one binary and actually understand end-to-end. It trades scale for simplicity, on purpose.
 
 ---
 
