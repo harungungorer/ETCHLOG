@@ -10,7 +10,7 @@
 [![Java 21](https://img.shields.io/badge/Java-21-007396)](#)
 [![Spring Boot 3.x](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)](#)
 
-**Last Updated: 2026-06-26**
+**Last Updated: 2026-06-28**
 
 ---
 
@@ -206,8 +206,10 @@ etchlog verify inclusion \
   --audit-path <path.json> \
   --sth <sth.json> \
   --pubkey etchlog-public.pem    # signature-checks the STH's root before trusting it
-# → ✅ INCLUSION PROOF VALID
+# → ✔ VERIFIED  leaf 0 in tree_size=1 (signed root)
 ```
+
+> 💡 **Tip** — `--pubkey` is the log's Ed25519 public key, which you pin **out-of-band** — that is the whole point of a transparency log, so the verifier never trusts the server it is auditing. Use the public PEM you generated for the durable stack (Option B's `secrets/etchlog-signing-pub.pem`). The `demo` profile mints an *ephemeral* key per boot and prints its fingerprint at startup, so it is for evaluation only. To verify against a raw root instead of a signed STH, swap `--sth/--pubkey` for `--root <base64|hex>`.
 
 ---
 
@@ -237,14 +239,16 @@ An **inclusion proof** for `leaf2` is the audit path `[ leaf3, H(d0,d1) ]` — j
 ```
 etchlog/
 ├── etchlog-core/                 # Pure-Java crypto core — ZERO Spring deps (ArchUnit-enforced)
-│   ├── MerkleTree                #   RFC 6962 leaf/node hashing, root computation
-│   ├── InclusionProof            #   audit-path generation + verification
-│   ├── ConsistencyProof          #   prefix-consistency generation + verification
-│   └── SignedTreeHead / Ed25519  #   STH construction + signing/verification
+│   ├── MerkleHash / MerkleTreeHash      #   RFC 6962 leaf/node hashing + root computation
+│   ├── InclusionProof / Verifier        #   audit-path generation + verification
+│   ├── ConsistencyProof / Verifier      #   prefix-consistency generation + verification
+│   └── SignedTreeHead / Ed25519SthSigner  #   STH construction + signing/verification
 ├── etchlog-server/               # Spring Boot app: REST API, JPA persistence, security, metrics
-│   ├── api/                      #   controllers + DTOs + OpenAPI
-│   ├── domain/                   #   sequencer, leaf/node entities
-│   └── db/migration/             #   Flyway migrations (Postgres + SQLite)
+│   ├── web/  (+ web/dto)         #   REST controllers + DTOs + OpenAPI
+│   ├── log/                      #   append sequencer + proof-generation service
+│   ├── persistence/             #   JPA entities + repositories (NodeStore impl)
+│   ├── security/                #   API-key appender authentication
+│   └── db/migration/            #   Flyway migrations (postgresql/ + sqlite/)
 ├── etchlog-spring-boot-starter/  # Auto-config: inject an EtchlogClient to append from any Spring app
 ├── etchlog-cli/                  # Picocli verifier: validate proofs + STHs offline
 └── dashboard/                    # React + TS + Vite: visualize tree, verify in-browser, tamper demo
@@ -300,7 +304,7 @@ npm run dev     # Vite dev server on :5173
 
 | | **Etchlog** | Google Trillian | AWS QLDB | Azure SQL Ledger |
 |---|---|---|---|---|
-| Verifiable (Merkle / RFC 6962) | ✅ | ✅ | ✅ | ✅ |
+| Cryptographically verifiable | ✅ (RFC 6962) | ✅ (RFC 6962) | ✅ (Merkle) | ✅ (Merkle) |
 | Self-hostable | ✅ | ✅ | ❌ (managed) | ❌ (managed) |
 | Single binary | ✅ (GraalVM) | ❌ | n/a | n/a |
 | JVM-native / embeddable starter | ✅ | ❌ (Go) | ❌ | ❌ |
@@ -309,6 +313,8 @@ npm run dev     # Vite dev server on :5173
 | Witness / cosigning | ❌ v1 | Ecosystem | n/a | n/a |
 
 > ⚠️ **Warning** — Etchlog does **not** compete with Trillian on throughput or scale, and this table is not a benchmark. Pick Trillian for planet-scale CT logs; pick Etchlog when you want a correct, auditable, self-hosted verifiable log you can run as one binary.
+
+> ℹ️ **Note** — "Cryptographically verifiable" means each row provides client-checkable proofs. Etchlog and Trillian implement the **RFC 6962** Merkle-tree algorithms specifically; QLDB and Azure SQL Ledger are Merkle-/hash-chain-verifiable but do not implement RFC 6962.
 
 ---
 

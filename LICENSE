@@ -4,11 +4,12 @@ The Etchlog server (the `etchlog-server`, `etchlog-core`, and `etchlog-cli`
 modules) is licensed under the GNU Affero General Public License v3.0
 (AGPL-3.0-only), the full text of which follows below.
 
-NOTE: The license of the reusable client library `etchlog-spring-boot-starter`
-is an OPEN DECISION — it may instead be released under Apache-2.0 to maximize
-adoption. This is the single unresolved licensing question and is tracked in
-docs/reference/ROADMAP.md. Until that decision is recorded there, treat the
-starter as AGPL-3.0-only along with the rest of the project.
+NOTE: The reusable client library `etchlog-spring-boot-starter` is licensed
+separately under the Apache License 2.0 (Apache-2.0), resolved 2026-06-23, so
+applications can embed the client without AGPL obligations. This is declared in
+the starter module's own POM (<licenses>) and recorded in
+docs/reference/ROADMAP.md. Only the starter is Apache-2.0; the server modules
+listed above (etchlog-server, etchlog-core, etchlog-cli) remain AGPL-3.0-only.
 
 SPDX-License-Identifier: AGPL-3.0-only
 
