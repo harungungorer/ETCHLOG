@@ -32,7 +32,7 @@
         <!-- GraalVM native-build-tools: the version paired with Spring Boot 3.4.1's
              native support (matches what spring-boot-starter-parent would inherit). -->
         <native-buildtools.version>0.10.4</native-buildtools.version>
-        <jqwik.version>1.9.2</jqwik.version>
+        <jqwik.version>1.10.1</jqwik.version>
         <archunit.version>1.3.0</archunit.version>
         <picocli.version>4.7.6</picocli.version>
         <springdoc.version>2.7.0</springdoc.version>
